@@ -88,4 +88,31 @@ class ItemsControllerTest {
         mockMvc.perform(get("/items").param("sort", "BAD"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void getItem_returnsItemView_andModelItem() throws Exception {
+        when(itemCatalogService.getItem(10L)).thenReturn(
+                new ItemDto(10, "t", "d", "images/1.jpg", 100, 2)
+        );
+
+        mockMvc.perform(get("/items/10"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("item"))
+                .andExpect(model().attributeExists("item"));
+    }
+
+    @Test
+    void postItem_changesCount_andReturnsItemView() throws Exception {
+        when(itemCatalogService.getItem(10L)).thenReturn(
+                new ItemDto(10, "t", "d", "images/1.jpg", 100, 3)
+        );
+
+        mockMvc.perform(post("/items/10").param("action", "PLUS"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("item"))
+                .andExpect(model().attributeExists("item"));
+
+        verify(cartService).changeCount(10L, CartAction.PLUS);
+        verify(itemCatalogService).getItem(10L);
+    }
 }

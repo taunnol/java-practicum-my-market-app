@@ -134,4 +134,19 @@ class ItemCatalogServiceTest {
         assertThat(page.paging().pageNumber()).isEqualTo(2);
         assertThat(page.paging().pageSize()).isEqualTo(5);
     }
+
+    @Test
+    void getItem_returnsDtoWithCount() {
+        ItemEntity e = new ItemEntity("Aboba", "aboba", "/images/aboba.jpg", 2100L);
+        TestEntityIds.setId(e, 7L);
+
+        when(itemRepository.findById(7L)).thenReturn(java.util.Optional.of(e));
+        when(cartService.getCountsByItemId()).thenReturn(Map.of(7L, 3));
+
+        var dto = itemCatalogService.getItem(7L);
+
+        assertThat(dto.id()).isEqualTo(7L);
+        assertThat(dto.count()).isEqualTo(3);
+        assertThat(dto.imgPath()).isEqualTo("images/aboba.jpg");
+    }
 }

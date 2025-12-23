@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.Paging;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
+import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
@@ -92,5 +93,14 @@ public class ItemCatalogService {
         );
 
         return new CatalogPage(items, paging);
+    }
+
+    @Transactional(readOnly = true)
+    public ItemDto getItem(long id) {
+        ItemEntity entity = itemRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Item not found: " + id));
+
+        Map<Long, Integer> counts = cartService.getCountsByItemId();
+        return toDto(entity, counts);
     }
 }
