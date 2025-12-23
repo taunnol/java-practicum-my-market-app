@@ -1,6 +1,6 @@
 package ru.yandex.practicum.mymarket.common.dto;
 
-public enum Action {
+public enum CartAction {
     MINUS,
     PLUS,
     DELETE

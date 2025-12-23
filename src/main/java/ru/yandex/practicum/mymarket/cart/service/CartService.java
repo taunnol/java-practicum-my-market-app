@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
-import ru.yandex.practicum.mymarket.common.dto.Action;
+import ru.yandex.practicum.mymarket.common.dto.CartAction;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +28,7 @@ public class CartService {
     }
 
     @Transactional
-    public void changeCount(long itemId, Action action) {
+    public void changeCount(long itemId, CartAction action) {
         if (itemId <= 0) {
             return;
         }

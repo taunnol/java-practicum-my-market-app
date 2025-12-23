@@ -9,7 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
-import ru.yandex.practicum.mymarket.common.dto.Action;
+import ru.yandex.practicum.mymarket.common.dto.CartAction;
 
 import java.util.List;
 import java.util.Map;
@@ -34,7 +34,7 @@ class CartServiceTest {
     void plus_createsNewRow_whenAbsent() {
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.empty());
 
-        cartService.changeCount(10L, Action.PLUS);
+        cartService.changeCount(10L, CartAction.PLUS);
 
         verify(cartItemRepository).save(entityCaptor.capture());
         CartItemEntity saved = entityCaptor.getValue();
@@ -49,7 +49,7 @@ class CartServiceTest {
         CartItemEntity existing = new CartItemEntity(10L, 2);
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.of(existing));
 
-        cartService.changeCount(10L, Action.PLUS);
+        cartService.changeCount(10L, CartAction.PLUS);
 
         verify(cartItemRepository).save(entityCaptor.capture());
         CartItemEntity saved = entityCaptor.getValue();
@@ -62,7 +62,7 @@ class CartServiceTest {
         CartItemEntity existing = new CartItemEntity(10L, 2);
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.of(existing));
 
-        cartService.changeCount(10L, Action.MINUS);
+        cartService.changeCount(10L, CartAction.MINUS);
 
         verify(cartItemRepository).save(entityCaptor.capture());
         CartItemEntity saved = entityCaptor.getValue();
@@ -75,7 +75,7 @@ class CartServiceTest {
         CartItemEntity existing = new CartItemEntity(10L, 1);
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.of(existing));
 
-        cartService.changeCount(10L, Action.MINUS);
+        cartService.changeCount(10L, CartAction.MINUS);
 
         verify(cartItemRepository).delete(existing);
         verify(cartItemRepository, never()).save(any(CartItemEntity.class));
@@ -86,7 +86,7 @@ class CartServiceTest {
         CartItemEntity existing = new CartItemEntity(10L, 5);
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.of(existing));
 
-        cartService.changeCount(10L, Action.DELETE);
+        cartService.changeCount(10L, CartAction.DELETE);
 
         verify(cartItemRepository).delete(existing);
         verify(cartItemRepository, never()).save(any(CartItemEntity.class));
@@ -96,7 +96,7 @@ class CartServiceTest {
     void minus_doesNothing_whenAbsent() {
         when(cartItemRepository.findByItemId(10L)).thenReturn(Optional.empty());
 
-        cartService.changeCount(10L, Action.MINUS);
+        cartService.changeCount(10L, CartAction.MINUS);
 
         verify(cartItemRepository, never()).save(any());
         verify(cartItemRepository, never()).delete(any());

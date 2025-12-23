@@ -42,10 +42,17 @@ public class ItemCatalogService {
                 id,
                 e.getTitle(),
                 e.getDescription(),
-                e.getImgPath(),
+                normalizeImgPath(e.getImgPath()),
                 e.getPrice(),
                 count
         );
+    }
+
+    private static String normalizeImgPath(String imgPath) {
+        if (imgPath == null) {
+            return "";
+        }
+        return imgPath.startsWith("/") ? imgPath.substring(1) : imgPath;
     }
 
     @Transactional(readOnly = true)
