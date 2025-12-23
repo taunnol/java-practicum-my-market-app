@@ -10,6 +10,7 @@ import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.Paging;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
 import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
+import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
@@ -43,17 +44,10 @@ public class ItemCatalogService {
                 id,
                 e.getTitle(),
                 e.getDescription(),
-                normalizeImgPath(e.getImgPath()),
+                ImgPathUtils.normalize(e.getImgPath()),
                 e.getPrice(),
                 count
         );
-    }
-
-    private static String normalizeImgPath(String imgPath) {
-        if (imgPath == null) {
-            return "";
-        }
-        return imgPath.startsWith("/") ? imgPath.substring(1) : imgPath;
     }
 
     @Transactional(readOnly = true)

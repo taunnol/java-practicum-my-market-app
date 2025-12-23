@@ -2,20 +2,31 @@ package ru.yandex.practicum.mymarket.cart.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.mymarket.cart.dto.CartView;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
+import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
+import ru.yandex.practicum.mymarket.items.dto.ItemDto;
+import ru.yandex.practicum.mymarket.items.model.ItemEntity;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class CartService {
 
     private final CartItemRepository cartItemRepository;
 
-    public CartService(CartItemRepository cartItemRepository) {
+    private final ItemRepository itemRepository;
+
+    public CartService(CartItemRepository cartItemRepository, ItemRepository itemRepository) {
         this.cartItemRepository = cartItemRepository;
+        this.itemRepository = itemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -67,5 +78,37 @@ public class CartService {
     @Transactional
     public void clear() {
         cartItemRepository.deleteAllInBatch();
+    }
+
+    @Transactional(readOnly = true)
+    public CartView getCartView() {
+        List<CartItemEntity> cartRows = cartItemRepository.findAll();
+        if (cartRows.isEmpty()) {
+            return new CartView(List.of(), 0L);
+        }
+
+        Map<Long, Integer> counts = cartRows.stream()
+                .collect(Collectors.toMap(CartItemEntity::getItemId, CartItemEntity::getCount));
+
+        List<ItemEntity> entities = itemRepository.findAllById(counts.keySet());
+
+        List<ItemDto> items = entities.stream()
+                .map(e -> new ItemDto(
+                        e.getId(),
+                        e.getTitle(),
+                        e.getDescription(),
+                        ImgPathUtils.normalize(e.getImgPath()),
+                        e.getPrice(),
+                        counts.getOrDefault(e.getId(), 0)
+                ))
+                .sorted(Comparator.comparingLong(ItemDto::id))
+                .toList();
+
+        long total = 0L;
+        for (ItemDto item : items) {
+            total += item.price() * (long) item.count();
+        }
+
+        return new CartView(items, total);
     }
 }

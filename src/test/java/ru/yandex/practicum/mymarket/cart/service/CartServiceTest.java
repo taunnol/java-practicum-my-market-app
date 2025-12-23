@@ -10,6 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
+import ru.yandex.practicum.mymarket.items.model.ItemEntity;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,9 @@ class CartServiceTest {
 
     @Mock
     private CartItemRepository cartItemRepository;
+
+    @Mock
+    private ItemRepository itemRepository;
 
     @InjectMocks
     private CartService cartService;
@@ -113,5 +118,36 @@ class CartServiceTest {
 
         assertThat(map).containsEntry(1L, 2);
         assertThat(map).containsEntry(2L, 1);
+    }
+
+    @Test
+    void getCartView_buildsItemsAndTotal() {
+        when(cartItemRepository.findAll()).thenReturn(List.of(
+                new CartItemEntity(10L, 2),
+                new CartItemEntity(20L, 1)
+        ));
+
+        ItemEntity e1 = new ItemEntity("A", "d", "/images/a.jpg", 100L);
+        ItemEntity e2 = new ItemEntity("B", "d", "/images/b.jpg", 50L);
+        setItemId(e1, 10L);
+        setItemId(e2, 20L);
+
+        when(itemRepository.findAllById(any())).thenReturn(List.of(e1, e2));
+
+        var view = cartService.getCartView();
+
+        assertThat(view.items()).hasSize(2);
+        assertThat(view.total()).isEqualTo(100L * 2 + 50L);
+        assertThat(view.items().getFirst().imgPath()).isEqualTo("images/a.jpg");
+    }
+
+    private static void setItemId(ItemEntity entity, long id) {
+        try {
+            var f = ItemEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
