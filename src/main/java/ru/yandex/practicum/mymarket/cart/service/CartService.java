@@ -6,10 +6,10 @@ import ru.yandex.practicum.mymarket.cart.dto.CartView;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
-import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.items.service.ItemDtoFactory;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -40,10 +40,6 @@ public class CartService {
 
     @Transactional
     public void changeCount(long itemId, CartAction action) {
-        if (itemId <= 0) {
-            return;
-        }
-
         CartItemEntity entity = cartItemRepository.findByItemId(itemId).orElse(null);
 
         switch (action) {
@@ -93,14 +89,7 @@ public class CartService {
         List<ItemEntity> entities = itemRepository.findAllById(counts.keySet());
 
         List<ItemDto> items = entities.stream()
-                .map(e -> new ItemDto(
-                        e.getId(),
-                        e.getTitle(),
-                        e.getDescription(),
-                        ImgPathUtils.normalize(e.getImgPath()),
-                        e.getPrice(),
-                        counts.getOrDefault(e.getId(), 0)
-                ))
+                .map(e -> ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0)))
                 .sorted(Comparator.comparingLong(ItemDto::id))
                 .toList();
 

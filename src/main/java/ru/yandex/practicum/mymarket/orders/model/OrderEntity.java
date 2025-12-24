@@ -15,10 +15,19 @@ public class OrderEntity {
     private Long id;
 
     @Column(nullable = false)
-    private final Instant createdAt = Instant.now();
+    private Instant createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final List<OrderItemEntity> items = new ArrayList<>();
+    @OrderBy("id ASC")
+    private List<OrderItemEntity> items = new ArrayList<>();
+
 
     public OrderEntity() {
         // for JPA

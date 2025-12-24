@@ -10,7 +10,6 @@ import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.Paging;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
 import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
-import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
@@ -38,16 +37,7 @@ public class ItemCatalogService {
     }
 
     private static ItemDto toDto(ItemEntity e, Map<Long, Integer> counts) {
-        long id = e.getId();
-        int count = counts.getOrDefault(id, 0);
-        return new ItemDto(
-                id,
-                e.getTitle(),
-                e.getDescription(),
-                ImgPathUtils.normalize(e.getImgPath()),
-                e.getPrice(),
-                count
-        );
+        return ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0));
     }
 
     @Transactional(readOnly = true)

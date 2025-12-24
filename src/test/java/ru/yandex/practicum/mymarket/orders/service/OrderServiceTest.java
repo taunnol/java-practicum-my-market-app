@@ -8,8 +8,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,20 +25,10 @@ class OrderServiceTest {
     @InjectMocks
     private OrderService orderService;
 
-    private static void setId(OrderEntity entity, long id) {
-        try {
-            Field f = OrderEntity.class.getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @Test
     void getOrder_calculatesTotalSum() {
         OrderEntity o = new OrderEntity();
-        setId(o, 10L);
+        TestEntityIds.setId(o, 10L);
         o.addItem(new OrderItemEntity(1L, "A", 100L, 2));
         o.addItem(new OrderItemEntity(2L, "B", 50L, 1));
 
@@ -54,9 +44,9 @@ class OrderServiceTest {
     @Test
     void getOrders_returnsList() {
         OrderEntity o1 = new OrderEntity();
-        setId(o1, 1L);
+        TestEntityIds.setId(o1, 1L);
         OrderEntity o2 = new OrderEntity();
-        setId(o2, 2L);
+        TestEntityIds.setId(o2, 2L);
 
         when(orderRepository.findAll()).thenReturn(List.of(o1, o2));
 

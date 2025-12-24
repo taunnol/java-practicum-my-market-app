@@ -1,17 +1,18 @@
-package ru.yandex.practicum.mymarket.items.service;
+package ru.yandex.practicum.mymarket.testutil;
 
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 
 import java.lang.reflect.Field;
 
-final class TestEntityIds {
+public final class TestEntityIds {
 
     private TestEntityIds() {
     }
 
-    static void setId(ItemEntity entity, long id) {
+    public static void setId(Object entity, long id) {
+        Class<?> c = entity.getClass();
         try {
-            Field f = ItemEntity.class.getDeclaredField("id");
+            Field f = c.getDeclaredField("id");
             f.setAccessible(true);
             f.set(entity, id);
         } catch (Exception e) {

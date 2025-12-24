@@ -13,9 +13,6 @@ import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -86,12 +83,10 @@ class MarketFlowIT {
             throw new AssertionError("Redirect Location header is null");
         }
 
-        Pattern p = Pattern.compile("/orders/(\\d+)\\?newOrder=true");
-        Matcher m = p.matcher(location);
-        if (!m.find()) {
-            throw new AssertionError("Unexpected redirect location: " + location);
-        }
-        long orderId = Long.parseLong(m.group(1));
+        mockMvc.perform(post("/buy"))
+                .andExpect(status().is3xxRedirection());
+
+        long orderId = orderRepository.findAll().getFirst().getId();
 
         mockMvc.perform(get("/orders/" + orderId).param("newOrder", "true"))
                 .andExpect(status().isOk())

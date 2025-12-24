@@ -12,8 +12,8 @@ import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
 
-import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,16 +34,6 @@ class CheckoutServiceTest {
     @Captor
     private ArgumentCaptor<OrderEntity> orderCaptor;
 
-    private static void setId(OrderEntity entity, long id) {
-        try {
-            Field f = OrderEntity.class.getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @Test
     void buy_createsOrderFromCart_andClearsCart() {
         when(cartService.getCartView()).thenReturn(new CartView(
@@ -56,7 +46,7 @@ class CheckoutServiceTest {
 
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> {
             OrderEntity o = inv.getArgument(0);
-            setId(o, 123L);
+            TestEntityIds.setId(o, 123L);
             return o;
         });
 

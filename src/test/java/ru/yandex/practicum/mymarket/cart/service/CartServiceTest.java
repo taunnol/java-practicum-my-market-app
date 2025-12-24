@@ -12,6 +12,7 @@ import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
 
 import java.util.List;
 import java.util.Map;
@@ -129,8 +130,9 @@ class CartServiceTest {
 
         ItemEntity e1 = new ItemEntity("A", "d", "/images/a.jpg", 100L);
         ItemEntity e2 = new ItemEntity("B", "d", "/images/b.jpg", 50L);
-        setItemId(e1, 10L);
-        setItemId(e2, 20L);
+
+        TestEntityIds.setId(e1, 10L);
+        TestEntityIds.setId(e2, 20L);
 
         when(itemRepository.findAllById(any())).thenReturn(List.of(e1, e2));
 
@@ -139,15 +141,5 @@ class CartServiceTest {
         assertThat(view.items()).hasSize(2);
         assertThat(view.total()).isEqualTo(100L * 2 + 50L);
         assertThat(view.items().getFirst().imgPath()).isEqualTo("images/a.jpg");
-    }
-
-    private static void setItemId(ItemEntity entity, long id) {
-        try {
-            var f = ItemEntity.class.getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

@@ -14,7 +14,6 @@ import ru.yandex.practicum.mymarket.common.dto.CartAction;
 import ru.yandex.practicum.mymarket.common.dto.ItemAction;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
 import ru.yandex.practicum.mymarket.common.util.GridUtils;
-import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.items.service.CatalogPage;
 import ru.yandex.practicum.mymarket.items.service.ItemCatalogService;
 
@@ -54,20 +53,17 @@ public class ItemsController {
             @RequestParam("action") ItemAction action,
             @RequestParam(required = false, defaultValue = "") String search,
             @RequestParam(required = false, defaultValue = "NO") SortMode sort,
-            @RequestParam(required = false, defaultValue = "1") int pageNumber,
-            @RequestParam(required = false, defaultValue = "5") int pageSize,
+            @RequestParam(required = false, defaultValue = "1") @Positive int pageNumber,
+            @RequestParam(required = false, defaultValue = "5") @Positive int pageSize,
             RedirectAttributes redirectAttributes
     ) {
-        int safePageNumber = pageNumber <= 0 ? 1 : pageNumber;
-        int safePageSize = pageSize <= 0 ? 5 : pageSize;
-
         CartAction cartAction = (action == ItemAction.PLUS) ? CartAction.PLUS : CartAction.MINUS;
         cartService.changeCount(id, cartAction);
 
         redirectAttributes.addAttribute("search", search == null ? "" : search);
         redirectAttributes.addAttribute("sort", sort.name());
-        redirectAttributes.addAttribute("pageNumber", safePageNumber);
-        redirectAttributes.addAttribute("pageSize", safePageSize);
+        redirectAttributes.addAttribute("pageNumber", pageNumber);
+        redirectAttributes.addAttribute("pageSize", pageSize);
 
         return "redirect:/items";
     }
@@ -77,9 +73,7 @@ public class ItemsController {
             @PathVariable("id") @Positive long id,
             Model model
     ) {
-        ItemDto item = itemCatalogService.getItem(id);
-        model.addAttribute("item", item);
-        return "item";
+        return renderItem(id, model);
     }
 
     @PostMapping("/items/{id}")
@@ -91,8 +85,11 @@ public class ItemsController {
         CartAction cartAction = (action == ItemAction.PLUS) ? CartAction.PLUS : CartAction.MINUS;
         cartService.changeCount(id, cartAction);
 
-        ItemDto item = itemCatalogService.getItem(id);
-        model.addAttribute("item", item);
+        return renderItem(id, model);
+    }
+
+    private String renderItem(long id, Model model) {
+        model.addAttribute("item", itemCatalogService.getItem(id));
         return "item";
     }
 }

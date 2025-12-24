@@ -14,19 +14,22 @@ import ru.yandex.practicum.mymarket.common.dto.CartAction;
 @Controller
 @Validated
 public class CartController {
-
     private final CartService cartService;
 
     public CartController(CartService cartService) {
         this.cartService = cartService;
     }
 
-    @GetMapping({"/cart", "/cart/items"})
-    public String getCart(Model model) {
+    private String renderCart(Model model) {
         CartView view = cartService.getCartView();
         model.addAttribute("items", view.items());
         model.addAttribute("total", view.total());
         return "cart";
+    }
+
+    @GetMapping({"/cart", "/cart/items"})
+    public String getCart(Model model) {
+        return renderCart(model);
     }
 
     @PostMapping("/cart/items")
@@ -37,9 +40,6 @@ public class CartController {
     ) {
         cartService.changeCount(id, action);
 
-        CartView view = cartService.getCartView();
-        model.addAttribute("items", view.items());
-        model.addAttribute("total", view.total());
-        return "cart";
+        return renderCart(model);
     }
 }
