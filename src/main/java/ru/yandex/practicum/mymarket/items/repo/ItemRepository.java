@@ -1,15 +1,7 @@
 package ru.yandex.practicum.mymarket.items.repo;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 
-public interface ItemRepository extends JpaRepository<ItemEntity, Long> {
-
-    Page<ItemEntity> findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
-            String titlePart,
-            String descriptionPart,
-            Pageable pageable
-    );
+public interface ItemRepository extends ReactiveCrudRepository<ItemEntity, Long>, ItemRepositoryCustom {
 }

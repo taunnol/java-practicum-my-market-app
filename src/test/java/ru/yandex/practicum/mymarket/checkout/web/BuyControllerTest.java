@@ -1,35 +1,63 @@
 package ru.yandex.practicum.mymarket.checkout.web;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.mymarket.checkout.service.CheckoutService;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
+import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
+import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
+import ru.yandex.practicum.mymarket.items.model.ItemEntity;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@WebMvcTest(BuyController.class)
+@SpringBootTest
+@AutoConfigureWebTestClient
 @ActiveProfiles("test")
 class BuyControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
-    @MockBean
-    private CheckoutService checkoutService;
+    @Autowired
+    private ItemRepository itemRepository;
+
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @BeforeEach
+    void cleanup() {
+        Mono.when(
+                orderRepository.deleteAll(),
+                cartItemRepository.deleteAll(),
+                itemRepository.deleteAll()
+        ).block();
+    }
 
     @Test
-    void buy_redirectsToNewOrderPage() throws Exception {
-        when(checkoutService.buy()).thenReturn(123L);
+    void buy_redirectsToNewOrderPage_andCreatesOrder() {
+        ItemEntity item = itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 1200L)).block();
+        cartItemRepository.save(new CartItemEntity(item.getId(), 1)).block();
 
-        mockMvc.perform(post("/buy"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", containsString("/orders/123?newOrder=true")));
+        webTestClient.post()
+                .uri("/buy")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> {
+                    assertThat(loc).contains("/orders/");
+                    assertThat(loc).contains("newOrder=true");
+                });
+
+        OrderEntity order = orderRepository.findAll().next().block();
+        assertThat(order).isNotNull();
     }
 }

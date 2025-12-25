@@ -1,37 +1,26 @@
 package ru.yandex.practicum.mymarket.orders.service;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
 import ru.yandex.practicum.mymarket.orders.dto.OrderDto;
 import ru.yandex.practicum.mymarket.orders.dto.OrderItemDto;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 
-import java.util.Comparator;
 import java.util.List;
 
 @Service
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
 
-    public OrderService(OrderRepository orderRepository) {
+    public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
         this.orderRepository = orderRepository;
-    }
-
-    private static OrderDto toDto(OrderEntity order) {
-        List<OrderItemDto> items = order.getItems().stream()
-                .map(OrderService::toDto)
-                .toList();
-
-        long total = 0L;
-        for (OrderItemDto i : items) {
-            total += i.price() * (long) i.count();
-        }
-
-        return new OrderDto(order.getId(), items, total);
+        this.orderItemRepository = orderItemRepository;
     }
 
     private static OrderItemDto toDto(OrderItemEntity e) {
@@ -43,18 +32,36 @@ public class OrderService {
         );
     }
 
-    @Transactional(readOnly = true)
-    public List<OrderDto> getOrders() {
-        return orderRepository.findAll().stream()
-                .sorted(Comparator.comparing(OrderEntity::getId).reversed())
+    private static OrderDto toDto(OrderEntity order, List<OrderItemEntity> items) {
+        List<OrderItemDto> dtoItems = items.stream()
                 .map(OrderService::toDto)
                 .toList();
+
+        long total = 0L;
+        for (OrderItemDto i : dtoItems) {
+            total += i.price() * (long) i.count();
+        }
+
+        return new OrderDto(order.getId(), dtoItems, total);
     }
 
-    @Transactional(readOnly = true)
-    public OrderDto getOrder(long id) {
-        OrderEntity order = orderRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Order not found: " + id));
-        return toDto(order);
+    public Mono<List<OrderDto>> getOrders() {
+        return orderRepository.findAllByOrderByIdDesc()
+                .flatMap(order ->
+                        orderItemRepository.findAllByOrderId(order.getId())
+                                .collectList()
+                                .map(items -> toDto(order, items))
+                )
+                .collectList();
+    }
+
+    public Mono<OrderDto> getOrder(long id) {
+        return orderRepository.findById(id)
+                .switchIfEmpty(Mono.error(new NotFoundException("Order not found: " + id)))
+                .flatMap(order ->
+                        orderItemRepository.findAllByOrderId(order.getId())
+                                .collectList()
+                                .map(items -> toDto(order, items))
+                );
     }
 }

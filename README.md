@@ -1,6 +1,7 @@
 # My market app
 
-Веб-приложение "Витрина интернет-магазина" на Spring Boot (Web MVC + Thymeleaf), H2, Spring Data JPA (Hibernate), Java 21.
+Веб-приложение "Витрина интернет-магазина" на реактивном стеке: Spring Boot + Spring WebFlux (embedded Netty), H2 через 
+драйвер r2dbc-h2, Java 21.
 
 ## Требования к окружению
 - Java 21

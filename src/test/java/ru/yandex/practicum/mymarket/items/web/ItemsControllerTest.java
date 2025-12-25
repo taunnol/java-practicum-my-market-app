@@ -1,118 +1,103 @@
 package ru.yandex.practicum.mymarket.items.web;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.mymarket.cart.service.CartService;
-import ru.yandex.practicum.mymarket.common.dto.CartAction;
-import ru.yandex.practicum.mymarket.common.dto.Paging;
-import ru.yandex.practicum.mymarket.common.util.GridUtils;
-import ru.yandex.practicum.mymarket.items.dto.ItemDto;
-import ru.yandex.practicum.mymarket.items.service.CatalogPage;
-import ru.yandex.practicum.mymarket.items.service.ItemCatalogService;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Mono;
+import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
+import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
+import ru.yandex.practicum.mymarket.items.model.ItemEntity;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 
-import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-@WebMvcTest(ItemsController.class)
+@SpringBootTest
+@AutoConfigureWebTestClient
 @ActiveProfiles("test")
 class ItemsControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
-    @MockBean
-    private ItemCatalogService itemCatalogService;
+    @Autowired
+    private ItemRepository itemRepository;
 
-    @MockBean
-    private CartService cartService;
+    @Autowired
+    private CartItemRepository cartItemRepository;
 
-    @Test
-    void getItems_returnsItemsView_andModelAttributes() throws Exception {
-        List<ItemDto> flat = List.of(
-                new ItemDto(1, "t1", "d1", "images/1.jpg", 10, 0),
-                new ItemDto(2, "t2", "d2", "images/2.jpg", 20, 1),
-                new ItemDto(3, "t3", "d3", "images/3.jpg", 30, 0),
-                new ItemDto(4, "t4", "d4", "images/4.jpg", 40, 0)
-        );
-        CatalogPage page = new CatalogPage(flat, new Paging(5, 1, false, true));
-        when(itemCatalogService.getCatalogPage(anyString(), any(), anyInt(), anyInt())).thenReturn(page);
+    @Autowired
+    private OrderRepository orderRepository;
 
-        List<List<ItemDto>> expectedRows = GridUtils.toRowsOf3WithPlaceholders(flat);
-
-        mockMvc.perform(get("/items")
-                        .param("search", "abc")
-                        .param("sort", "NO")
-                        .param("pageNumber", "1")
-                        .param("pageSize", "5"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("items"))
-                .andExpect(model().attribute("search", "abc"))
-                .andExpect(model().attribute("sort", "NO"))
-                .andExpect(model().attributeExists("paging"))
-                .andExpect(model().attribute("items", equalTo(expectedRows)));
+    @BeforeEach
+    void cleanup() {
+        Mono.when(
+                orderRepository.deleteAll(),
+                cartItemRepository.deleteAll(),
+                itemRepository.deleteAll()
+        ).block();
     }
 
     @Test
-    void postItems_changesCount_andRedirectsBackKeepingQueryParams() throws Exception {
-        mockMvc.perform(post("/items")
-                        .param("id", "10")
-                        .param("action", "PLUS")
-                        .param("search", "q")
-                        .param("sort", "PRICE")
-                        .param("pageNumber", "2")
-                        .param("pageSize", "20"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", containsString("/items")))
-                .andExpect(header().string("Location", containsString("search=q")))
-                .andExpect(header().string("Location", containsString("sort=PRICE")))
-                .andExpect(header().string("Location", containsString("pageNumber=2")))
-                .andExpect(header().string("Location", containsString("pageSize=20")));
+    void getItems_returnsHtml() {
+        itemRepository.saveAll(java.util.List.of(
+                new ItemEntity("t1", "d1", "/images/1.jpg", 10L),
+                new ItemEntity("t2", "d2", "/images/2.jpg", 20L)
+        )).collectList().block();
 
-        verify(cartService).changeCount(10L, CartAction.PLUS);
+        webTestClient.get()
+                .uri("/items?search=&sort=NO&pageNumber=1&pageSize=5")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("Витрина магазина");
+                    assertThat(body).contains("t1");
+                    assertThat(body).contains("t2");
+                });
     }
 
     @Test
-    void getItems_invalidSort_returns400() throws Exception {
-        mockMvc.perform(get("/items").param("sort", "BAD"))
-                .andExpect(status().isBadRequest());
+    void postItems_changesCart_andRedirectsKeepingQueryParams() {
+        itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = itemRepository.findAll().next().map(ItemEntity::getId).block();
+
+        webTestClient.post()
+                .uri("/items")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
+                        .with("action", "PLUS")
+                        .with("search", "q")
+                        .with("sort", "PRICE")
+                        .with("pageNumber", "2")
+                        .with("pageSize", "20")
+                )
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> {
+                    assertThat(loc).contains("/items");
+                    assertThat(loc).contains("search=q");
+                    assertThat(loc).contains("sort=PRICE");
+                    assertThat(loc).contains("pageNumber=2");
+                    assertThat(loc).contains("pageSize=20");
+                });
+
+        Integer count = cartItemRepository.findByItemId(itemId).map(CartItemEntity::getCount).block();
+        assertThat(count).isEqualTo(1);
     }
 
     @Test
-    void getItem_returnsItemView_andModelItem() throws Exception {
-        when(itemCatalogService.getItem(10L)).thenReturn(
-                new ItemDto(10, "t", "d", "images/1.jpg", 100, 2)
-        );
-
-        mockMvc.perform(get("/items/10"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("item"))
-                .andExpect(model().attributeExists("item"));
-    }
-
-    @Test
-    void postItem_changesCount_andReturnsItemView() throws Exception {
-        when(itemCatalogService.getItem(10L)).thenReturn(
-                new ItemDto(10, "t", "d", "images/1.jpg", 100, 3)
-        );
-
-        mockMvc.perform(post("/items/10").param("action", "PLUS"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("item"))
-                .andExpect(model().attributeExists("item"));
-
-        verify(cartService).changeCount(10L, CartAction.PLUS);
-        verify(itemCatalogService).getItem(10L);
+    void getItems_invalidSort_returns400() {
+        webTestClient.get()
+                .uri("/items?sort=BAD")
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 }
