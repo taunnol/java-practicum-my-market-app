@@ -1,19 +1,10 @@
 package ru.yandex.practicum.mymarket.orders.repo;
 
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Flux;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 
-import java.util.List;
-import java.util.Optional;
+public interface OrderRepository extends ReactiveCrudRepository<OrderEntity, Long> {
 
-public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
-
-    @Override
-    @EntityGraph(attributePaths = "items")
-    List<OrderEntity> findAll();
-
-    @Override
-    @EntityGraph(attributePaths = "items")
-    Optional<OrderEntity> findById(Long id);
+    Flux<OrderEntity> findAllByOrderByIdDesc();
 }
