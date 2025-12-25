@@ -5,13 +5,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
-
-import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -22,6 +23,9 @@ class OrderServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private OrderItemRepository orderItemRepository;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -29,16 +33,20 @@ class OrderServiceTest {
     void getOrder_calculatesTotalSum() {
         OrderEntity o = new OrderEntity();
         TestEntityIds.setId(o, 10L);
-        o.addItem(new OrderItemEntity(1L, "A", 100L, 2));
-        o.addItem(new OrderItemEntity(2L, "B", 50L, 1));
 
-        when(orderRepository.findById(10L)).thenReturn(Optional.of(o));
+        when(orderRepository.findById(10L)).thenReturn(Mono.just(o));
+        when(orderItemRepository.findAllByOrderId(10L)).thenReturn(Flux.just(
+                new OrderItemEntity(1L, "A", 100L, 2),
+                new OrderItemEntity(2L, "B", 50L, 1)
+        ));
 
-        var dto = orderService.getOrder(10L);
-
-        assertThat(dto.id()).isEqualTo(10L);
-        assertThat(dto.items()).hasSize(2);
-        assertThat(dto.totalSum()).isEqualTo(250L);
+        StepVerifier.create(orderService.getOrder(10L))
+                .assertNext(dto -> {
+                    assertThat(dto.id()).isEqualTo(10L);
+                    assertThat(dto.items()).hasSize(2);
+                    assertThat(dto.totalSum()).isEqualTo(250L);
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -48,10 +56,12 @@ class OrderServiceTest {
         OrderEntity o2 = new OrderEntity();
         TestEntityIds.setId(o2, 2L);
 
-        when(orderRepository.findAll()).thenReturn(List.of(o1, o2));
+        when(orderRepository.findAllByOrderByIdDesc()).thenReturn(Flux.just(o2, o1));
+        when(orderItemRepository.findAllByOrderId(2L)).thenReturn(Flux.empty());
+        when(orderItemRepository.findAllByOrderId(1L)).thenReturn(Flux.empty());
 
-        var list = orderService.getOrders();
-
-        assertThat(list).hasSize(2);
+        StepVerifier.create(orderService.getOrders())
+                .assertNext(list -> assertThat(list).hasSize(2))
+                .verifyComplete();
     }
 }
