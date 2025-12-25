@@ -1,44 +1,63 @@
 package ru.yandex.practicum.mymarket.checkout.service;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import ru.yandex.practicum.mymarket.cart.dto.CartView;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
-import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+
+import java.time.LocalDateTime;
 
 @Service
 public class CheckoutService {
 
     private final CartService cartService;
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final TransactionalOperator tx;
 
-    public CheckoutService(CartService cartService, OrderRepository orderRepository) {
+    public CheckoutService(
+            CartService cartService,
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            TransactionalOperator tx
+    ) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.tx = tx;
     }
 
-    @Transactional
-    public long buy() {
-        CartView cart = cartService.getCartView();
+    public Mono<Long> buy() {
+        Mono<Long> flow = cartService.getCartView()
+                .flatMap(cart -> {
+                    OrderEntity order = new OrderEntity();
+                    order.setCreatedAt(LocalDateTime.now());
 
-        OrderEntity order = new OrderEntity();
-        for (ItemDto item : cart.items()) {
-            if (item.count() <= 0) {
-                continue;
-            }
-            order.addItem(new OrderItemEntity(
-                    item.id(),
-                    item.title(),
-                    item.price(),
-                    item.count()
-            ));
-        }
+                    return orderRepository.save(order)
+                            .flatMap(saved ->
+                                    Flux.fromIterable(cart.items())
+                                            .filter(i -> i.count() > 0)
+                                            .map(i -> {
+                                                OrderItemEntity oi = new OrderItemEntity(
+                                                        i.id(),
+                                                        i.title(),
+                                                        i.price(),
+                                                        i.count()
+                                                );
+                                                oi.setOrderId(saved.getId());
+                                                return oi;
+                                            })
+                                            .flatMap(orderItemRepository::save)
+                                            .then(cartService.clear())
+                                            .thenReturn(saved.getId())
+                            );
+                });
 
-        OrderEntity saved = orderRepository.save(order);
-        cartService.clear();
-        return saved.getId();
+        return tx.transactional(flow);
     }
 }
