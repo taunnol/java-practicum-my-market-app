@@ -27,14 +27,11 @@ public class ItemCatalogService {
         String q = (search == null) ? "" : search.trim();
         SortMode sortMode = (sort == null) ? SortMode.NO : sort;
 
-        int safePageSize = (pageSize <= 0) ? 5 : pageSize;
-        int safePageNumber = (pageNumber <= 0) ? 1 : pageNumber;
-
-        int offset = (safePageNumber - 1) * safePageSize;
+        int offset = (pageNumber - 1) * pageSize;
 
         Mono<Long> totalMono = itemRepository.countBySearch(q);
         Mono<Map<Long, Integer>> countsMono = cartService.getCountsByItemId();
-        Mono<List<ItemDto>> itemsMono = itemRepository.findPage(q, sortMode, safePageSize, offset)
+        Mono<List<ItemDto>> itemsMono = itemRepository.findPage(q, sortMode, pageSize, offset)
                 .collectList()
                 .zipWith(countsMono, (entities, counts) -> entities.stream()
                         .map(e -> ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0)))
@@ -46,12 +43,12 @@ public class ItemCatalogService {
                     long total = t.getT1();
                     List<ItemDto> items = t.getT2();
 
-                    boolean hasPrevious = safePageNumber > 1;
-                    boolean hasNext = (long) offset + (long) safePageSize < total;
+                    boolean hasPrevious = pageNumber > 1;
+                    boolean hasNext = (long) offset + (long) pageSize < total;
 
                     Paging paging = new Paging(
-                            safePageSize,
-                            safePageNumber,
+                            pageSize,
+                            pageNumber,
                             hasPrevious,
                             hasNext
                     );

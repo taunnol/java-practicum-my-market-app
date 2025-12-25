@@ -9,7 +9,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
@@ -49,15 +48,26 @@ public class CartController {
 
     public static class CartActionForm {
         @Positive
+        @NotNull
         private long id;
 
         @NotNull
         private CartAction action;
 
-        public long getId() { return id; }
-        public void setId(long id) { this.id = id; }
+        public long getId() {
+            return id;
+        }
 
-        public CartAction getAction() { return action; }
-        public void setAction(CartAction action) { this.action = action; }
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public CartAction getAction() {
+            return action;
+        }
+
+        public void setAction(CartAction action) {
+            this.action = action;
+        }
     }
 }

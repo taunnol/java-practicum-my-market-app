@@ -89,6 +89,7 @@ public class ItemsController {
 
     public static class ItemsActionForm {
         @Positive
+        @NotNull
         private long id;
 
         @NotNull
