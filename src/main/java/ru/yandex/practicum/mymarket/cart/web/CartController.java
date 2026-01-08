@@ -45,29 +45,4 @@ public class CartController {
                     return "cart";
                 });
     }
-
-    public static class CartActionForm {
-        @Positive
-        @NotNull
-        private long id;
-
-        @NotNull
-        private CartAction action;
-
-        public long getId() {
-            return id;
-        }
-
-        public void setId(long id) {
-            this.id = id;
-        }
-
-        public CartAction getAction() {
-            return action;
-        }
-
-        public void setAction(CartAction action) {
-            this.action = action;
-        }
-    }
 }
