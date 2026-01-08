@@ -29,10 +29,10 @@ class CartItemRepositoryTest {
 
     @BeforeEach
     void cleanup() {
-        Mono.when(
+        StepVerifier.create(Mono.when(
                 cartItemRepository.deleteAll(),
                 itemRepository.deleteAll()
-        ).block();
+        )).verifyComplete();
     }
 
     @Test

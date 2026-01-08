@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
@@ -37,11 +38,11 @@ class ItemsControllerTest {
 
     @BeforeEach
     void cleanup() {
-        Mono.when(
+        StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),
                 cartItemRepository.deleteAll(),
                 itemRepository.deleteAll()
-        ).block();
+        )).verifyComplete();
     }
 
     @Test

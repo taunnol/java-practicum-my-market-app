@@ -24,7 +24,7 @@ class ItemRepositoryTest {
 
     @BeforeEach
     void cleanup() {
-        itemRepository.deleteAll().block();
+        StepVerifier.create(itemRepository.deleteAll()).verifyComplete();
     }
 
     @Test

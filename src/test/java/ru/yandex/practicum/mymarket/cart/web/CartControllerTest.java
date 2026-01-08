@@ -38,11 +38,11 @@ class CartControllerTest {
 
     @BeforeEach
     void cleanup() {
-        Mono.when(
+        StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),
                 cartItemRepository.deleteAll(),
                 itemRepository.deleteAll()
-        ).block();
+        )).verifyComplete();
     }
 
     @Test

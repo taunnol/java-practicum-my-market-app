@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
@@ -42,12 +43,12 @@ class OrdersControllerTest {
 
     @BeforeEach
     void cleanup() {
-        Mono.when(
+        StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),
                 orderItemRepository.deleteAll(),
                 cartItemRepository.deleteAll(),
                 itemRepository.deleteAll()
-        ).block();
+        )).verifyComplete();
     }
 
     @Test

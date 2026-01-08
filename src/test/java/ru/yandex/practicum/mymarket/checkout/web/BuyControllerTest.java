@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
@@ -36,11 +37,11 @@ class BuyControllerTest {
 
     @BeforeEach
     void cleanup() {
-        Mono.when(
+        StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),
                 cartItemRepository.deleteAll(),
                 itemRepository.deleteAll()
-        ).block();
+        )).verifyComplete();
     }
 
     @Test
