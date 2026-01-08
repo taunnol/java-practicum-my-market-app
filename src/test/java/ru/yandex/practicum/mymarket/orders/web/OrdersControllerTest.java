@@ -3,10 +3,7 @@ package ru.yandex.practicum.mymarket.orders.web;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -16,14 +13,13 @@ import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@AutoConfigureWebTestClient
-@ActiveProfiles("test")
+@MyMarketSpringBootTest
 class OrdersControllerTest {
 
     @Autowired

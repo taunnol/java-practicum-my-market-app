@@ -2,10 +2,7 @@ package ru.yandex.practicum.mymarket.integration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
@@ -15,12 +12,11 @@ import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@AutoConfigureWebTestClient
-@ActiveProfiles("test")
+@MyMarketSpringBootTest
 class MarketFlowIT {
 
     private final WebTestClient webTestClient;

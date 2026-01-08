@@ -3,22 +3,17 @@ package ru.yandex.practicum.mymarket.cart.repo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
-import ru.yandex.practicum.mymarket.config.R2dbcInitConfig;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketDataR2dbcTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataR2dbcTest
-@Import(R2dbcInitConfig.class)
-@ActiveProfiles("test")
+@MyMarketDataR2dbcTest
 class CartItemRepositoryTest {
 
     @Autowired
