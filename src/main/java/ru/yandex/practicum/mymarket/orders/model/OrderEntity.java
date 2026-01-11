@@ -1,44 +1,40 @@
 package ru.yandex.practicum.mymarket.orders.model;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "orders")
+@Table("orders")
 public class OrderEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Instant createdAt;
+    @Column("created_at")
+    private LocalDateTime createdAt;
 
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
-        }
-    }
-
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("id ASC")
-    private List<OrderItemEntity> items = new ArrayList<>();
-
+    @Transient
+    private final List<OrderItemEntity> items = new ArrayList<>();
 
     public OrderEntity() {
-        // for JPA
+        // for Spring Data
     }
 
     public Long getId() {
         return id;
     }
 
-    public Instant getCreatedAt() {
+    public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public List<OrderItemEntity> getItems() {
@@ -47,6 +43,5 @@ public class OrderEntity {
 
     public void addItem(OrderItemEntity item) {
         items.add(item);
-        item.setOrder(this);
     }
 }

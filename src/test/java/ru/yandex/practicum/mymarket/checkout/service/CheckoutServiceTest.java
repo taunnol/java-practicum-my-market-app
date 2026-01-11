@@ -7,16 +7,22 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.dto.CartView;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
+import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,38 +34,47 @@ class CheckoutServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private OrderItemRepository orderItemRepository;
+
+    @Mock
+    private TransactionalOperator tx;
+
     @InjectMocks
     private CheckoutService checkoutService;
 
     @Captor
-    private ArgumentCaptor<OrderEntity> orderCaptor;
+    private ArgumentCaptor<OrderItemEntity> orderItemCaptor;
 
     @Test
-    void buy_createsOrderFromCart_andClearsCart() {
-        when(cartService.getCartView()).thenReturn(new CartView(
+    void buy_createsOrderItems_andClearsCart() {
+        when(cartService.getCartView()).thenReturn(Mono.just(new CartView(
                 List.of(
                         new ItemDto(10, "A", "d", "images/a.jpg", 100, 2),
                         new ItemDto(20, "B", "d", "images/b.jpg", 50, 1)
                 ),
                 250L
-        ));
+        )));
 
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> {
             OrderEntity o = inv.getArgument(0);
             TestEntityIds.setId(o, 123L);
-            return o;
+            return Mono.just(o);
         });
 
-        long id = checkoutService.buy();
+        when(orderItemRepository.save(any(OrderItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(cartService.clear()).thenReturn(Mono.empty());
 
-        assertThat(id).isEqualTo(123L);
+        when(tx.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        verify(orderRepository).save(orderCaptor.capture());
-        OrderEntity saved = orderCaptor.getValue();
-        assertThat(saved.getItems()).hasSize(2);
-        assertThat(saved.getItems().getFirst().getTitle()).isEqualTo("A");
-        assertThat(saved.getItems().getFirst().getPrice()).isEqualTo(100L);
-        assertThat(saved.getItems().getFirst().getCount()).isEqualTo(2);
+        StepVerifier.create(checkoutService.buy())
+                .expectNext(123L)
+                .verifyComplete();
+
+        verify(orderItemRepository, times(2)).save(orderItemCaptor.capture());
+        List<OrderItemEntity> saved = orderItemCaptor.getAllValues();
+
+        assertThat(saved).allMatch(i -> i.getOrderId() != null && i.getOrderId().equals(123L));
 
         verify(cartService).clear();
     }

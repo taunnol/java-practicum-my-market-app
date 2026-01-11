@@ -1,7 +1,5 @@
 package ru.yandex.practicum.mymarket.testutil;
 
-import ru.yandex.practicum.mymarket.items.model.ItemEntity;
-
 import java.lang.reflect.Field;
 
 public final class TestEntityIds {

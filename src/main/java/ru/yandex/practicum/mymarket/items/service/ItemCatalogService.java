@@ -1,17 +1,12 @@
 package ru.yandex.practicum.mymarket.items.service;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.Paging;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
 import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
-import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 
 import java.util.List;
@@ -28,63 +23,46 @@ public class ItemCatalogService {
         this.cartService = cartService;
     }
 
-    private static Sort toSort(SortMode sortMode) {
-        return switch (sortMode) {
-            case NO -> Sort.unsorted();
-            case ALPHA -> Sort.by(Sort.Direction.ASC, "title");
-            case PRICE -> Sort.by(Sort.Direction.ASC, "price");
-        };
-    }
-
-    private static ItemDto toDto(ItemEntity e, Map<Long, Integer> counts) {
-        return ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0));
-    }
-
-    @Transactional(readOnly = true)
-    public CatalogPage getCatalogPage(String search, SortMode sort, int pageNumber, int pageSize) {
+    public Mono<CatalogPage> getCatalogPage(String search, SortMode sort, int pageNumber, int pageSize) {
         String q = (search == null) ? "" : search.trim();
         SortMode sortMode = (sort == null) ? SortMode.NO : sort;
 
-        int safePageSize = (pageSize <= 0) ? 5 : pageSize;
-        int safePageNumber = (pageNumber <= 0) ? 1 : pageNumber;
+        int offset = (pageNumber - 1) * pageSize;
 
-        Pageable pageable = PageRequest.of(
-                safePageNumber - 1,
-                safePageSize,
-                toSort(sortMode)
-        );
+        Mono<Long> totalMono = itemRepository.countBySearch(q);
+        Mono<Map<Long, Integer>> countsMono = cartService.getCountsByItemId();
+        Mono<List<ItemDto>> itemsMono = itemRepository.findPage(q, sortMode, pageSize, offset)
+                .collectList()
+                .zipWith(countsMono, (entities, counts) -> entities.stream()
+                        .map(e -> ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0)))
+                        .toList()
+                );
 
-        Page<ItemEntity> page;
-        if (q.isEmpty()) {
-            page = itemRepository.findAll(pageable);
-        } else {
-            page = itemRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
-                    q, q, pageable
-            );
-        }
+        return Mono.zip(totalMono, itemsMono)
+                .map(t -> {
+                    long total = t.getT1();
+                    List<ItemDto> items = t.getT2();
 
-        Map<Long, Integer> counts = cartService.getCountsByItemId();
+                    boolean hasPrevious = pageNumber > 1;
+                    boolean hasNext = (long) offset + (long) pageSize < total;
 
-        List<ItemDto> items = page.getContent().stream()
-                .map(e -> toDto(e, counts))
-                .toList();
+                    Paging paging = new Paging(
+                            pageSize,
+                            pageNumber,
+                            hasPrevious,
+                            hasNext
+                    );
 
-        Paging paging = new Paging(
-                safePageSize,
-                safePageNumber,
-                page.hasPrevious(),
-                page.hasNext()
-        );
-
-        return new CatalogPage(items, paging);
+                    return new CatalogPage(items, paging);
+                });
     }
 
-    @Transactional(readOnly = true)
-    public ItemDto getItem(long id) {
-        ItemEntity entity = itemRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Item not found: " + id));
-
-        Map<Long, Integer> counts = cartService.getCountsByItemId();
-        return toDto(entity, counts);
+    public Mono<ItemDto> getItem(long id) {
+        return itemRepository.findById(id)
+                .switchIfEmpty(Mono.error(new NotFoundException("Item not found: " + id)))
+                .flatMap(entity ->
+                        cartService.getCountsByItemId()
+                                .map(counts -> ItemDtoFactory.fromEntity(entity, counts.getOrDefault(entity.getId(), 0)))
+                );
     }
 }

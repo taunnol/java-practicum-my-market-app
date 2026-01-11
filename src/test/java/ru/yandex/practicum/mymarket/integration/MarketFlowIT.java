@@ -2,97 +2,99 @@ package ru.yandex.practicum.mymarket.integration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
+@MyMarketSpringBootTest
 class MarketFlowIT {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private final WebTestClient webTestClient;
+    private final ItemRepository itemRepository;
+    private final CartItemRepository cartItemRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private ItemRepository itemRepository;
-
-    @Autowired
-    private CartItemRepository cartItemRepository;
-
-    @Autowired
-    private OrderRepository orderRepository;
+    MarketFlowIT(WebTestClient webTestClient,
+                 ItemRepository itemRepository,
+                 CartItemRepository cartItemRepository,
+                 OrderRepository orderRepository) {
+        this.webTestClient = webTestClient;
+        this.itemRepository = itemRepository;
+        this.cartItemRepository = cartItemRepository;
+        this.orderRepository = orderRepository;
+    }
 
     @BeforeEach
     void cleanup() {
-        orderRepository.deleteAll();
-        cartItemRepository.deleteAll();
-        itemRepository.deleteAll();
+        StepVerifier.create(Mono.when(
+                orderRepository.deleteAll(),
+                cartItemRepository.deleteAll(),
+                itemRepository.deleteAll()
+        )).verifyComplete();
     }
 
     @Test
-    void flow_itemsToCartToBuyToOrder() throws Exception {
+    void flow_itemsToCartToBuyToOrder() {
         ItemEntity ball = itemRepository.save(new ItemEntity(
                 "Abobs",
                 "aboba",
                 "/images/aboba.jpg",
                 1200L
-        ));
+        )).block();
+
         long itemId = ball.getId();
 
-        mockMvc.perform(get("/items"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("items"))
-                .andExpect(model().attributeExists("items"))
-                .andExpect(model().attributeExists("paging"));
+        webTestClient.get()
+                .uri("/items")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML);
 
-        mockMvc.perform(post("/items")
-                        .param("id", String.valueOf(itemId))
-                        .param("action", "PLUS")
-                        .param("search", "")
-                        .param("sort", "NO")
-                        .param("pageNumber", "1")
-                        .param("pageSize", "5"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", containsString("/items")));
+        webTestClient.post()
+                .uri("/items")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
+                        .with("action", "PLUS")
+                        .with("search", "")
+                        .with("sort", "NO")
+                        .with("pageNumber", "1")
+                        .with("pageSize", "5"))
+                .exchange()
+                .expectStatus().is3xxRedirection();
 
-        mockMvc.perform(get("/cart/items"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"))
-                .andExpect(model().attribute("items", hasSize(1)))
-                .andExpect(model().attribute("total", equalTo(1200L)));
+        webTestClient.get()
+                .uri("/cart/items")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("Abobs");
+                    assertThat(body).contains("1200");
+                });
 
-        MvcResult buyResult = mockMvc.perform(post("/buy"))
-                .andExpect(status().is3xxRedirection())
-                .andReturn();
+        webTestClient.post()
+                .uri("/buy")
+                .exchange()
+                .expectStatus().is3xxRedirection();
 
-        String location = buyResult.getResponse().getHeader("Location");
-        if (location == null) {
-            throw new AssertionError("Redirect Location header is null");
-        }
+        OrderEntity order = orderRepository.findAll().next().block();
+        assertThat(order).isNotNull();
 
-        mockMvc.perform(post("/buy"))
-                .andExpect(status().is3xxRedirection());
-
-        long orderId = orderRepository.findAll().getFirst().getId();
-
-        mockMvc.perform(get("/orders/" + orderId).param("newOrder", "true"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("order"))
-                .andExpect(model().attribute("newOrder", equalTo(true)))
-                .andExpect(model().attributeExists("order"))
-                .andExpect(model().attribute("order", hasProperty("totalSum", equalTo(1200L))));
+        webTestClient.get()
+                .uri("/orders/" + order.getId() + "?newOrder=true")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> assertThat(body).contains("Поздравляем"));
     }
 }

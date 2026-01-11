@@ -1,33 +1,29 @@
 package ru.yandex.practicum.mymarket.orders.model;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "order_items")
+@Table("order_items")
 public class OrderItemEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
-    private OrderEntity order;
+    @Column("order_id")
+    private Long orderId;
 
-    @Column(name = "item_id", nullable = false)
+    @Column("item_id")
     private Long itemId;
 
-    @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
     private Long price;
 
-    @Column(nullable = false)
     private Integer count;
 
-    protected OrderItemEntity() {
-        // for JPA
+    public OrderItemEntity() {
+        // for Spring Data
     }
 
     public OrderItemEntity(Long itemId, String title, Long price, Integer count) {
@@ -41,12 +37,12 @@ public class OrderItemEntity {
         return id;
     }
 
-    public OrderEntity getOrder() {
-        return order;
+    public Long getOrderId() {
+        return orderId;
     }
 
-    void setOrder(OrderEntity order) {
-        this.order = order;
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public Long getItemId() {

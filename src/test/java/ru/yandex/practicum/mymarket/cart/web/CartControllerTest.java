@@ -1,62 +1,81 @@
 package ru.yandex.practicum.mymarket.cart.web;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.mymarket.cart.dto.CartView;
-import ru.yandex.practicum.mymarket.cart.service.CartService;
-import ru.yandex.practicum.mymarket.common.dto.CartAction;
-import ru.yandex.practicum.mymarket.items.dto.ItemDto;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
+import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
+import ru.yandex.practicum.mymarket.items.model.ItemEntity;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
-import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-@WebMvcTest(CartController.class)
-@ActiveProfiles("test")
+@MyMarketSpringBootTest
 class CartControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
-    @MockBean
-    private CartService cartService;
+    @Autowired
+    private ItemRepository itemRepository;
 
-    @Test
-    void getCart_returnsCartView() throws Exception {
-        when(cartService.getCartView()).thenReturn(new CartView(
-                List.of(new ItemDto(1, "A", "a", "images/a.jpg", 100, 2)),
-                200L
-        ));
+    @Autowired
+    private CartItemRepository cartItemRepository;
 
-        mockMvc.perform(get("/cart/items"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"))
-                .andExpect(model().attributeExists("items"))
-                .andExpect(model().attribute("total", equalTo(200L)));
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @BeforeEach
+    void cleanup() {
+        StepVerifier.create(Mono.when(
+                orderRepository.deleteAll(),
+                cartItemRepository.deleteAll(),
+                itemRepository.deleteAll()
+        )).verifyComplete();
     }
 
     @Test
-    void postCart_changesCount_andReturnsCartView() throws Exception {
-        when(cartService.getCartView()).thenReturn(new CartView(List.of(), 0L));
+    void getCart_returnsHtmlWithTotal() {
+        ItemEntity item = itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
+        cartItemRepository.save(new CartItemEntity(item.getId(), 2)).block();
 
-        mockMvc.perform(post("/cart/items")
-                        .param("id", "10")
-                        .param("action", "DELETE"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"))
-                .andExpect(model().attributeExists("items"))
-                .andExpect(model().attributeExists("total"));
+        webTestClient.get()
+                .uri("/cart/items")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("A");
+                    assertThat(body).contains("Итого");
+                    assertThat(body).contains("200");
+                });
+    }
 
-        verify(cartService).changeCount(10L, CartAction.DELETE);
-        verify(cartService).getCartView();
+    @Test
+    void postCart_deleteRemovesRow() {
+        itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
+        Long itemId = itemRepository.findAll().next().map(ItemEntity::getId).block();
+
+        cartItemRepository.save(new CartItemEntity(itemId, 2)).block();
+
+        webTestClient.post()
+                .uri("/cart/items")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
+                        .with("action", "DELETE")
+                )
+                .exchange()
+                .expectStatus().isOk();
+
+        StepVerifier.create(cartItemRepository.findByItemId(itemId))
+                .verifyComplete();
     }
 }

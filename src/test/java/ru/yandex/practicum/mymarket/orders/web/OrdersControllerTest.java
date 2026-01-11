@@ -1,57 +1,78 @@
 package ru.yandex.practicum.mymarket.orders.web;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import ru.yandex.practicum.mymarket.orders.dto.OrderDto;
-import ru.yandex.practicum.mymarket.orders.dto.OrderItemDto;
-import ru.yandex.practicum.mymarket.orders.service.OrderService;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
+import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
+import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
+import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
+import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
+import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@WebMvcTest(OrdersController.class)
-@ActiveProfiles("test")
+@MyMarketSpringBootTest
 class OrdersControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
-    @MockBean
-    private OrderService orderService;
+    @Autowired
+    private OrderRepository orderRepository;
 
-    @Test
-    void getOrders_returnsOrdersView() throws Exception {
-        when(orderService.getOrders()).thenReturn(List.of(
-                new OrderDto(1, List.of(), 0),
-                new OrderDto(2, List.of(), 0)
-        ));
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
-        mockMvc.perform(get("/orders"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("orders"))
-                .andExpect(model().attributeExists("orders"));
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
+    @Autowired
+    private ItemRepository itemRepository;
+
+    @BeforeEach
+    void cleanup() {
+        StepVerifier.create(Mono.when(
+                orderRepository.deleteAll(),
+                orderItemRepository.deleteAll(),
+                cartItemRepository.deleteAll(),
+                itemRepository.deleteAll()
+        )).verifyComplete();
     }
 
     @Test
-    void getOrder_returnsOrderView_withNewOrderFlag() throws Exception {
-        when(orderService.getOrder(10L)).thenReturn(new OrderDto(
-                10,
-                List.of(new OrderItemDto(1, "A", 100, 2)),
-                200
-        ));
+    void ordersPages_render() {
+        OrderEntity order = new OrderEntity();
+        order.setCreatedAt(LocalDateTime.now());
 
-        mockMvc.perform(get("/orders/10").param("newOrder", "true"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("order"))
-                .andExpect(model().attributeExists("order"))
-                .andExpect(model().attribute("newOrder", equalTo(true)));
+        OrderEntity saved = orderRepository.save(order).block();
+        long id = saved.getId();
+
+        OrderItemEntity oi = new OrderItemEntity(10L, "A", 100L, 2);
+        oi.setOrderId(id);
+        orderItemRepository.save(oi).block();
+
+        webTestClient.get()
+                .uri("/orders")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> assertThat(body).contains("Заказ №" + id));
+
+        webTestClient.get()
+                .uri("/orders/" + id + "?newOrder=true")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> assertThat(body).contains("Поздравляем"));
     }
 }
