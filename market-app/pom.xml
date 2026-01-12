@@ -92,6 +92,7 @@
                                 <modelTests>false</modelTests>
                             </globalProperties>
                             <configOptions>
+                                <useTags>true</useTags>
                                 <dateLibrary>java8</dateLibrary>
                                 <useJakartaEe>true</useJakartaEe>
                                 <openApiNullable>false</openApiNullable>

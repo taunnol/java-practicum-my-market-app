@@ -53,7 +53,7 @@ public class PaymentsController implements PaymentsApi {
             }
 
             body.setMessage("INSUFFICIENT_FUNDS");
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
         });
     }
 }

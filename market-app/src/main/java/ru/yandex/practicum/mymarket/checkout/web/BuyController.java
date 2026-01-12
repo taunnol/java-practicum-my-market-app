@@ -4,6 +4,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.checkout.service.CheckoutService;
+import ru.yandex.practicum.mymarket.payments.service.InsufficientFundsException;
+import ru.yandex.practicum.mymarket.payments.service.PaymentServiceUnavailableException;
 
 @Controller
 public class BuyController {
@@ -17,6 +19,10 @@ public class BuyController {
     @PostMapping("/buy")
     public Mono<String> buy() {
         return checkoutService.buy()
-                .map(id -> "redirect:/orders/" + id + "?newOrder=true");
+                .map(id -> "redirect:/orders/" + id + "?newOrder=true")
+                .onErrorResume(InsufficientFundsException.class,
+                        e -> Mono.just("redirect:/cart/items?buyError=INSUFFICIENT_FUNDS"))
+                .onErrorResume(PaymentServiceUnavailableException.class,
+                        e -> Mono.just("redirect:/cart/items?buyError=SERVICE_UNAVAILABLE"));
     }
 }

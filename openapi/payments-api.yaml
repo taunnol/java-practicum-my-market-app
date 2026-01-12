@@ -48,7 +48,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentResponse"
-        "409":
+        "400":
           description: Not enough funds
           content:
             application/json:

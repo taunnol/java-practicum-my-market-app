@@ -21,6 +21,11 @@
                 </div>
             </div>
         </div>
+        <div class="row p-2" th:if="${buyMessage != null}">
+            <div class="col">
+                <div id="buy-message" class="alert alert-warning" th:text="${buyMessage}"></div>
+            </div>
+        </div>
         <div class="row p-2" th:each="item : ${items}">
             <div class="col">
                 <div class="card">
@@ -48,8 +53,8 @@
             <div class="col">
                 <form action="/buy" method="post" th:if="${!items.isEmpty()}">
                     <div class="hstack gap-3">
-                        <h2 th:text="'Итого: '+${total}+' руб.'"/>
-                        <button class="btn btn-warning ms-auto">Купить</button>
+                        <h2 th:text="'Итого: '+${total}+' руб.'"></h2>
+                        <button id="buy-button" class="btn btn-warning ms-auto" th:disabled="${!canBuy}">Купить</button>
                     </div>
                 </form>
             </div>

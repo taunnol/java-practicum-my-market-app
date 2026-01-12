@@ -2,6 +2,7 @@ package ru.yandex.practicum.mymarket.integration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -12,18 +13,24 @@ import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.payments.service.BuyAvailability;
+import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
-import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
 
 @MyMarketSpringBootTest
-class MarketFlowIT extends RedisSpringBootTestBase {
+class MarketFlowIT {
 
     private final WebTestClient webTestClient;
     private final ItemRepository itemRepository;
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
+
+    @MockBean
+    private PaymentsClient paymentsClient;
 
     MarketFlowIT(WebTestClient webTestClient,
                  ItemRepository itemRepository,
@@ -37,6 +44,9 @@ class MarketFlowIT extends RedisSpringBootTestBase {
 
     @BeforeEach
     void cleanup() {
+        when(paymentsClient.getBuyAvailability(anyLong())).thenReturn(Mono.just(BuyAvailability.ok()));
+        when(paymentsClient.pay(anyLong())).thenReturn(Mono.empty());
+
         StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),
                 cartItemRepository.deleteAll(),

@@ -57,13 +57,13 @@ class PaymentsServiceIT {
     }
 
     @Test
-    void pay_withInsufficientFunds_returns409_andKeepsBalance() {
+    void pay_withInsufficientFunds_returns400_andKeepsBalance() {
         webTestClient.post()
                 .uri("/api/payments/pay")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("amount", 200))
                 .exchange()
-                .expectStatus().isEqualTo(409)
+                .expectStatus().isEqualTo(400)
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                 .expectBody()
                 .jsonPath("$.success").isEqualTo(false)
