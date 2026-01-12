@@ -1,8 +1,6 @@
 package ru.yandex.practicum.mymarket.cart.web;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
@@ -11,7 +9,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
-import ru.yandex.practicum.mymarket.common.dto.CartAction;
 
 @Controller
 @Validated

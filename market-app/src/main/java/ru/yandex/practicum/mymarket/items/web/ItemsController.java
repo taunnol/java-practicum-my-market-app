@@ -1,7 +1,6 @@
 package ru.yandex.practicum.mymarket.items.web;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

@@ -6,8 +6,10 @@ import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.common.dto.Paging;
 import ru.yandex.practicum.mymarket.common.dto.SortMode;
 import ru.yandex.practicum.mymarket.common.exception.NotFoundException;
+import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
+import ru.yandex.practicum.mymarket.items.cache.CachedItem;
+import ru.yandex.practicum.mymarket.items.cache.CachedItemService;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
-import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -15,12 +17,23 @@ import java.util.Map;
 @Service
 public class ItemCatalogService {
 
-    private final ItemRepository itemRepository;
+    private final CachedItemService cachedItemService;
     private final CartService cartService;
 
-    public ItemCatalogService(ItemRepository itemRepository, CartService cartService) {
-        this.itemRepository = itemRepository;
+    public ItemCatalogService(CachedItemService cachedItemService, CartService cartService) {
+        this.cachedItemService = cachedItemService;
         this.cartService = cartService;
+    }
+
+    private static ItemDto mapItem(CachedItem ci, int count) {
+        return new ItemDto(
+                ci.id(),
+                ci.title(),
+                ci.description(),
+                ImgPathUtils.normalize(ci.imgPath()),
+                ci.price(),
+                count
+        );
     }
 
     public Mono<CatalogPage> getCatalogPage(String search, SortMode sort, int pageNumber, int pageSize) {
@@ -29,19 +42,15 @@ public class ItemCatalogService {
 
         int offset = (pageNumber - 1) * pageSize;
 
-        Mono<Long> totalMono = itemRepository.countBySearch(q);
         Mono<Map<Long, Integer>> countsMono = cartService.getCountsByItemId();
-        Mono<List<ItemDto>> itemsMono = itemRepository.findPage(q, sortMode, pageSize, offset)
-                .collectList()
-                .zipWith(countsMono, (entities, counts) -> entities.stream()
-                        .map(e -> ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0)))
-                        .toList()
-                );
 
-        return Mono.zip(totalMono, itemsMono)
-                .map(t -> {
-                    long total = t.getT1();
-                    List<ItemDto> items = t.getT2();
+        return cachedItemService.getCatalogPage(q, sortMode, pageNumber, pageSize)
+                .zipWith(countsMono, (cachedPage, counts) -> {
+                    List<ItemDto> items = cachedPage.items().stream()
+                            .map(ci -> mapItem(ci, counts.getOrDefault(ci.id(), 0)))
+                            .toList();
+
+                    long total = cachedPage.total();
 
                     boolean hasPrevious = pageNumber > 1;
                     boolean hasNext = (long) offset + (long) pageSize < total;
@@ -58,11 +67,10 @@ public class ItemCatalogService {
     }
 
     public Mono<ItemDto> getItem(long id) {
-        return itemRepository.findById(id)
+        return cachedItemService.getItem(id)
                 .switchIfEmpty(Mono.error(new NotFoundException("Item not found: " + id)))
-                .flatMap(entity ->
-                        cartService.getCountsByItemId()
-                                .map(counts -> ItemDtoFactory.fromEntity(entity, counts.getOrDefault(entity.getId(), 0)))
+                .zipWith(cartService.getCountsByItemId(), (ci, counts) ->
+                        mapItem(ci, counts.getOrDefault(ci.id(), 0))
                 );
     }
 }

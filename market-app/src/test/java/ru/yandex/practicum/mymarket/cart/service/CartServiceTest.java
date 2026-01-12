@@ -13,12 +13,12 @@ import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
-import ru.yandex.practicum.mymarket.items.model.ItemEntity;
-import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
-import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
+import ru.yandex.practicum.mymarket.items.cache.CachedItem;
+import ru.yandex.practicum.mymarket.items.cache.CachedItemService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,7 +28,7 @@ class CartServiceTest {
     private CartItemRepository cartItemRepository;
 
     @Mock
-    private ItemRepository itemRepository;
+    private CachedItemService cachedItemService;
 
     @InjectMocks
     private CartService cartService;
@@ -142,18 +142,16 @@ class CartServiceTest {
                 new CartItemEntity(20L, 1)
         ));
 
-        ItemEntity e1 = new ItemEntity("A", "d", "/images/a.jpg", 100L);
-        ItemEntity e2 = new ItemEntity("B", "d", "/images/b.jpg", 50L);
-        TestEntityIds.setId(e1, 10L);
-        TestEntityIds.setId(e2, 20L);
+        CachedItem i1 = new CachedItem(10L, "A", "d", "/images/a.jpg", 100L);
+        CachedItem i2 = new CachedItem(20L, "B", "d", "/images/b.jpg", 50L);
 
-        when(itemRepository.findAllById(any(Iterable.class))).thenReturn(Flux.just(e1, e2));
+        when(cachedItemService.getItems(anyCollection())).thenReturn(Flux.just(i1, i2));
 
         StepVerifier.create(cartService.getCartView())
                 .assertNext(view -> {
                     assertThat(view.items()).hasSize(2);
                     assertThat(view.total()).isEqualTo(100L * 2 + 50L);
-                    assertThat(view.items().get(0).imgPath()).isEqualTo("images/a.jpg");
+                    assertThat(view.items().getFirst().imgPath()).isEqualTo("images/a.jpg");
                 })
                 .verifyComplete();
     }

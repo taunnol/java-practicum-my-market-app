@@ -13,11 +13,12 @@ import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
+import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @MyMarketSpringBootTest
-class MarketFlowIT {
+class MarketFlowIT extends RedisSpringBootTestBase {
 
     private final WebTestClient webTestClient;
     private final ItemRepository itemRepository;

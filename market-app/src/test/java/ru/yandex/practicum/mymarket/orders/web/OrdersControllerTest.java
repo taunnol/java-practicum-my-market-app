@@ -14,13 +14,14 @@ import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
+import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @MyMarketSpringBootTest
-class OrdersControllerTest {
+class OrdersControllerTest extends RedisSpringBootTestBase {
 
     @Autowired
     private WebTestClient webTestClient;

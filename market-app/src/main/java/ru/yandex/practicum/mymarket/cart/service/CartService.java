@@ -6,9 +6,10 @@ import ru.yandex.practicum.mymarket.cart.dto.CartView;
 import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
+import ru.yandex.practicum.mymarket.common.util.ImgPathUtils;
+import ru.yandex.practicum.mymarket.items.cache.CachedItem;
+import ru.yandex.practicum.mymarket.items.cache.CachedItemService;
 import ru.yandex.practicum.mymarket.items.dto.ItemDto;
-import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
-import ru.yandex.practicum.mymarket.items.service.ItemDtoFactory;
 
 import java.util.Comparator;
 import java.util.List;
@@ -18,11 +19,22 @@ import java.util.Map;
 public class CartService {
 
     private final CartItemRepository cartItemRepository;
-    private final ItemRepository itemRepository;
+    private final CachedItemService cachedItemService;
 
-    public CartService(CartItemRepository cartItemRepository, ItemRepository itemRepository) {
+    public CartService(CartItemRepository cartItemRepository, CachedItemService cachedItemService) {
         this.cartItemRepository = cartItemRepository;
-        this.itemRepository = itemRepository;
+        this.cachedItemService = cachedItemService;
+    }
+
+    private static ItemDto toItemDto(CachedItem ci, int count) {
+        return new ItemDto(
+                ci.id(),
+                ci.title(),
+                ci.description(),
+                ImgPathUtils.normalize(ci.imgPath()),
+                ci.price(),
+                count
+        );
     }
 
     public Mono<Map<Long, Integer>> getCountsByItemId() {
@@ -67,8 +79,8 @@ public class CartService {
                         return Mono.just(new CartView(List.of(), 0L));
                     }
 
-                    return itemRepository.findAllById(counts.keySet())
-                            .map(e -> ItemDtoFactory.fromEntity(e, counts.getOrDefault(e.getId(), 0)))
+                    return cachedItemService.getItems(counts.keySet())
+                            .map(ci -> toItemDto(ci, counts.getOrDefault(ci.id(), 0)))
                             .collectSortedList(Comparator.comparingLong(ItemDto::id))
                             .map(items -> {
                                 long total = 0L;

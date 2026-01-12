@@ -12,14 +12,12 @@ import java.util.List;
 @Table("orders")
 public class OrderEntity {
 
-    @Id
-    private Long id;
-
-    @Column("created_at")
-    private LocalDateTime createdAt;
-
     @Transient
     private final List<OrderItemEntity> items = new ArrayList<>();
+    @Id
+    private Long id;
+    @Column("created_at")
+    private LocalDateTime createdAt;
 
     public OrderEntity() {
         // for Spring Data
