@@ -1,0 +1,101 @@
+openapi: 3.0.3
+
+info:
+  title: My Market Payments API
+  version: 1.0.0
+  description: |
+    REST API сервиса платежей для проекта "Витрина интернет-магазина".
+    Используется основным приложением для:
+    - проверки баланса,
+    - списания суммы заказа.
+
+servers:
+  - url: http://localhost:8081
+
+tags:
+  - name: payments
+    description: Payments operations
+
+paths:
+  /api/payments/balance:
+    get:
+      tags: [payments]
+      operationId: getBalance
+      summary: Get current balance
+      responses:
+        "200":
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+
+  /api/payments/pay:
+    post:
+      tags: [payments]
+      operationId: pay
+      summary: Withdraw amount from balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequest"
+      responses:
+        "200":
+          description: Payment accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "409":
+          description: Not enough funds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "503":
+          description: Service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+
+components:
+  schemas:
+    BalanceResponse:
+      type: object
+      required: [balance]
+      properties:
+        balance:
+          type: integer
+          format: int64
+          minimum: 0
+
+    PaymentRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+      example:
+        amount: 1500
+
+    PaymentResponse:
+      type: object
+      required: [success, balance]
+      properties:
+        success:
+          type: boolean
+        balance:
+          type: integer
+          format: int64
+          minimum: 0
+        message:
+          type: string
+      example:
+        success: true
+        balance: 8500
+        message: OK
