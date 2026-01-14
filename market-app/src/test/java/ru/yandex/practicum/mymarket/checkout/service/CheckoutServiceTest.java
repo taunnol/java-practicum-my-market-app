@@ -53,6 +53,8 @@ class CheckoutServiceTest {
 
     @Test
     void buy_createsOrderItems_andClearsCart_whenPaymentOk() {
+        lenient().doAnswer(inv -> inv.getArgument(0)).when(tx).transactional(any(Mono.class));
+
         when(cartService.getCartView()).thenReturn(Mono.just(new CartView(
                 List.of(
                         new ItemDto(10, "A", "d", "images/a.jpg", 100, 2),
@@ -61,7 +63,6 @@ class CheckoutServiceTest {
                 250L
         )));
 
-        when(paymentService.pay(250L)).thenReturn(Mono.empty());
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> {
             OrderEntity o = inv.getArgument(0);
             TestEntityIds.setId(o, 123L);
@@ -69,41 +70,57 @@ class CheckoutServiceTest {
         });
 
         when(orderItemRepository.save(any(OrderItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(cartService.clear()).thenReturn(Mono.empty());
 
-        when(tx.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentService.pay(250L)).thenReturn(Mono.empty());
+        when(cartService.clear()).thenReturn(Mono.empty());
 
         StepVerifier.create(checkoutService.buy())
                 .expectNext(123L)
                 .verifyComplete();
 
-        verify(paymentService).pay(250L);
-
+        verify(orderRepository).save(any(OrderEntity.class));
         verify(orderItemRepository, times(2)).save(orderItemCaptor.capture());
-        List<OrderItemEntity> saved = orderItemCaptor.getAllValues();
 
+        List<OrderItemEntity> saved = orderItemCaptor.getAllValues();
         assertThat(saved).allMatch(i -> i.getOrderId() != null && i.getOrderId().equals(123L));
 
+        verify(paymentService).pay(250L);
         verify(cartService).clear();
+
+        verify(orderRepository, never()).deleteById(123L);
     }
 
     @Test
-    void buy_doesNotCreateOrder_whenPaymentRejected() {
+    void buy_deletesDraftOrder_whenPaymentRejected() {
+        lenient().doAnswer(inv -> inv.getArgument(0)).when(tx).transactional(any(Mono.class));
+
         when(cartService.getCartView()).thenReturn(Mono.just(new CartView(
                 List.of(new ItemDto(10, "A", "d", "images/a.jpg", 100, 2)),
                 200L
         )));
 
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> {
+            OrderEntity o = inv.getArgument(0);
+            TestEntityIds.setId(o, 777L);
+            return Mono.just(o);
+        });
+
+        when(orderItemRepository.save(any(OrderItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
         when(paymentService.pay(200L)).thenReturn(Mono.error(new InsufficientFundsException("INSUFFICIENT_FUNDS")));
+
+        when(orderRepository.deleteById(777L)).thenReturn(Mono.empty());
 
         StepVerifier.create(checkoutService.buy())
                 .expectError(InsufficientFundsException.class)
                 .verify();
 
-        verify(paymentService).pay(200L);
+        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderItemRepository, times(1)).save(any(OrderItemEntity.class));
 
-        verify(orderRepository, never()).save(any());
-        verify(orderItemRepository, never()).save(any());
+        verify(paymentService).pay(200L);
+        verify(orderRepository).deleteById(777L);
+
         verify(cartService, never()).clear();
     }
 }

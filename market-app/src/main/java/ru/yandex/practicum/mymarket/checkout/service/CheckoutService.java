@@ -1,5 +1,7 @@
 package ru.yandex.practicum.mymarket.checkout.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
@@ -16,6 +18,8 @@ import java.time.LocalDateTime;
 
 @Service
 public class CheckoutService {
+
+    private static final Logger log = LoggerFactory.getLogger(CheckoutService.class);
 
     private final CartService cartService;
     private final OrderRepository orderRepository;
@@ -41,12 +45,24 @@ public class CheckoutService {
         return cartService.getCartView()
                 .flatMap(cart -> {
                     long total = cart.total();
-                    return paymentService.pay(total)
-                            .then(Mono.defer(() -> createOrderInTx(cart)));
+                    if (total <= 0) {
+                        return Mono.error(new IllegalStateException("Cart is empty"));
+                    }
+
+                    return createOrderDraftInTx(cart)
+                            .flatMap(orderId ->
+                                    paymentService.pay(total)
+                                            .onErrorResume(payError ->
+                                                    deleteDraftOrder(orderId, payError)
+                                                            .then(Mono.error(payError))
+                                            )
+                                            .then(finalizeAfterPayment(orderId))
+                                            .thenReturn(orderId)
+                            );
                 });
     }
 
-    private Mono<Long> createOrderInTx(CartView cart) {
+    private Mono<Long> createOrderDraftInTx(CartView cart) {
         Mono<Long> flow = Mono.defer(() -> {
             OrderEntity order = new OrderEntity();
             order.setCreatedAt(LocalDateTime.now());
@@ -66,11 +82,27 @@ public class CheckoutService {
                                         return oi;
                                     })
                                     .flatMap(orderItemRepository::save)
-                                    .then(cartService.clear())
-                                    .thenReturn(saved.getId())
+                                    .then(Mono.just(saved.getId()))
                     );
         });
 
         return tx.transactional(flow);
+    }
+
+    private Mono<Void> finalizeAfterPayment(long orderId) {
+        return Mono.defer(() -> tx.transactional(cartService.clear()))
+                .onErrorResume(e -> {
+                    log.error("Failed to clear cart after successful payment, orderId={}", orderId, e);
+                    return Mono.empty();
+                });
+    }
+
+    private Mono<Void> deleteDraftOrder(long orderId, Throwable payError) {
+        return orderRepository.deleteById(orderId)
+                .onErrorResume(deleteError -> {
+                    log.error("Failed to delete draft order after payment error, orderId={}, payError={}",
+                            orderId, payError.toString(), deleteError);
+                    return Mono.empty();
+                });
     }
 }
