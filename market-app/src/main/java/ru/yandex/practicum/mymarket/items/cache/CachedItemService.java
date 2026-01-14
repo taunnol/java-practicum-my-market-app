@@ -13,20 +13,22 @@ public class CachedItemService {
 
     private final ItemRepository itemRepository;
     private final RedisItemCache redisItemCache;
+    private final CacheErrorHandler cacheErrorHandler;
 
-    public CachedItemService(ItemRepository itemRepository, RedisItemCache redisItemCache) {
+    public CachedItemService(ItemRepository itemRepository, RedisItemCache redisItemCache, CacheErrorHandler cacheErrorHandler) {
         this.itemRepository = itemRepository;
         this.redisItemCache = redisItemCache;
+        this.cacheErrorHandler = cacheErrorHandler;
     }
 
     public Mono<CachedItem> getItem(long id) {
         return redisItemCache.getItem(id)
-                .onErrorResume(e -> Mono.empty())
+                .onErrorResume(e -> cacheErrorHandler.onReadError("items:card", "id=" + id, e))
                 .switchIfEmpty(
                         itemRepository.findById(id)
                                 .map(CachedItem::fromEntity)
                                 .flatMap(ci -> redisItemCache.putItem(id, ci)
-                                        .onErrorResume(e -> Mono.empty())
+                                        .onErrorResume(e -> cacheErrorHandler.onWriteError("items:card", "id=" + id, e))
                                         .thenReturn(ci))
                 );
     }
@@ -39,9 +41,10 @@ public class CachedItemService {
     public Mono<CachedCatalogPage> getCatalogPage(String search, SortMode sort, int pageNumber, int pageSize) {
         CatalogCacheKey key = CatalogCacheKey.of(search, sort, pageNumber, pageSize);
         int offset = (pageNumber - 1) * pageSize;
+        String keyForLog = key.toString();
 
         return redisItemCache.getCatalogPage(key)
-                .onErrorResume(e -> Mono.empty())
+                .onErrorResume(e -> cacheErrorHandler.onReadError("items:list", keyForLog, e))
                 .switchIfEmpty(
                         Mono.zip(
                                         itemRepository.countBySearch(key.searchNormalized()),
@@ -51,7 +54,7 @@ public class CachedItemService {
                                 )
                                 .map(t -> new CachedCatalogPage(t.getT2(), t.getT1()))
                                 .flatMap(page -> redisItemCache.putCatalogPage(key, page)
-                                        .onErrorResume(e -> Mono.empty())
+                                        .onErrorResume(e -> cacheErrorHandler.onWriteError("items:list", keyForLog, e))
                                         .thenReturn(page))
                 );
     }
