@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @Service
@@ -28,12 +28,18 @@ public class RedisItemCache {
     }
 
     private static String catalogKey(CatalogCacheKey key) {
-        String raw = key.searchNormalized()
-                + "|" + key.sortMode().name()
-                + "|" + key.pageNumber()
-                + "|" + key.pageSize();
-        String hash = DigestUtils.md5DigestAsHex(raw.getBytes(StandardCharsets.UTF_8));
-        return "items:list:" + hash;
+        String search = encodeForKey(key.searchNormalized());
+        return "items:list:search=" + search
+                + "|sort=" + key.sortMode().name()
+                + "|page=" + key.pageNumber()
+                + "|size=" + key.pageSize();
+    }
+
+    private static String encodeForKey(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     public Mono<CachedItem> getItem(long id) {
