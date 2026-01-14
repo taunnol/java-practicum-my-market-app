@@ -13,7 +13,7 @@ import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
-import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
+import ru.yandex.practicum.mymarket.payments.service.PaymentService;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,11 +36,11 @@ class BuyControllerTest {
     private OrderRepository orderRepository;
 
     @MockBean
-    private PaymentsClient paymentsClient;
+    private PaymentService paymentService;
 
     @BeforeEach
     void cleanup() {
-        when(paymentsClient.pay(anyLong())).thenReturn(Mono.empty());
+        when(paymentService.pay(anyLong())).thenReturn(Mono.empty());
 
         StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),

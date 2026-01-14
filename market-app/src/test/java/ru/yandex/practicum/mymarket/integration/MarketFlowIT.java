@@ -14,7 +14,8 @@ import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.payments.service.BuyAvailability;
-import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
+import ru.yandex.practicum.mymarket.payments.service.BuyAvailabilityService;
+import ru.yandex.practicum.mymarket.payments.service.PaymentService;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +31,10 @@ class MarketFlowIT {
     private final OrderRepository orderRepository;
 
     @MockBean
-    private PaymentsClient paymentsClient;
+    private BuyAvailabilityService buyAvailabilityService;
+
+    @MockBean
+    private PaymentService paymentService;
 
     MarketFlowIT(WebTestClient webTestClient,
                  ItemRepository itemRepository,
@@ -44,8 +48,8 @@ class MarketFlowIT {
 
     @BeforeEach
     void cleanup() {
-        when(paymentsClient.getBuyAvailability(anyLong())).thenReturn(Mono.just(BuyAvailability.ok()));
-        when(paymentsClient.pay(anyLong())).thenReturn(Mono.empty());
+        when(buyAvailabilityService.getBuyAvailability(anyLong())).thenReturn(Mono.just(BuyAvailability.ok()));
+        when(paymentService.pay(anyLong())).thenReturn(Mono.empty());
 
         StepVerifier.create(Mono.when(
                 orderRepository.deleteAll(),

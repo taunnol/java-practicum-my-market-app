@@ -18,7 +18,7 @@ import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.payments.service.InsufficientFundsException;
-import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
+import ru.yandex.practicum.mymarket.payments.service.PaymentService;
 import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
 
 import java.util.List;
@@ -43,7 +43,7 @@ class CheckoutServiceTest {
     private TransactionalOperator tx;
 
     @Mock
-    private PaymentsClient paymentsClient;
+    private PaymentService paymentService;
 
     @InjectMocks
     private CheckoutService checkoutService;
@@ -61,7 +61,7 @@ class CheckoutServiceTest {
                 250L
         )));
 
-        when(paymentsClient.pay(250L)).thenReturn(Mono.empty());
+        when(paymentService.pay(250L)).thenReturn(Mono.empty());
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(inv -> {
             OrderEntity o = inv.getArgument(0);
             TestEntityIds.setId(o, 123L);
@@ -77,7 +77,7 @@ class CheckoutServiceTest {
                 .expectNext(123L)
                 .verifyComplete();
 
-        verify(paymentsClient).pay(250L);
+        verify(paymentService).pay(250L);
 
         verify(orderItemRepository, times(2)).save(orderItemCaptor.capture());
         List<OrderItemEntity> saved = orderItemCaptor.getAllValues();
@@ -94,13 +94,13 @@ class CheckoutServiceTest {
                 200L
         )));
 
-        when(paymentsClient.pay(200L)).thenReturn(Mono.error(new InsufficientFundsException("INSUFFICIENT_FUNDS")));
+        when(paymentService.pay(200L)).thenReturn(Mono.error(new InsufficientFundsException("INSUFFICIENT_FUNDS")));
 
         StepVerifier.create(checkoutService.buy())
                 .expectError(InsufficientFundsException.class)
                 .verify();
 
-        verify(paymentsClient).pay(200L);
+        verify(paymentService).pay(200L);
 
         verify(orderRepository, never()).save(any());
         verify(orderItemRepository, never()).save(any());

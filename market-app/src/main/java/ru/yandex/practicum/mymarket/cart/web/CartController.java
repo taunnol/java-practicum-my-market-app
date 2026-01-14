@@ -11,18 +11,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.cart.service.CartService;
 import ru.yandex.practicum.mymarket.payments.service.BuyAvailability;
-import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
+import ru.yandex.practicum.mymarket.payments.service.BuyAvailabilityService;
 
 @Controller
 @Validated
 public class CartController {
 
     private final CartService cartService;
-    private final PaymentsClient paymentsClient;
+    private final BuyAvailabilityService buyAvailabilityService;
 
-    public CartController(CartService cartService, PaymentsClient paymentsClient) {
+    public CartController(CartService cartService, BuyAvailabilityService buyAvailabilityService) {
         this.cartService = cartService;
-        this.paymentsClient = paymentsClient;
+        this.buyAvailabilityService = buyAvailabilityService;
     }
 
     private static String mapBuyError(String buyError) {
@@ -56,7 +56,7 @@ public class CartController {
     private Mono<String> renderCart(Model model, String buyError) {
         return cartService.getCartView()
                 .flatMap(view -> {
-                    Mono<BuyAvailability> availMono = paymentsClient.getBuyAvailability(view.total());
+                    Mono<BuyAvailability> availMono = buyAvailabilityService.getBuyAvailability(view.total());
 
                     return availMono.map(avail -> {
                         boolean canBuy = !view.items().isEmpty() && avail.canBuy();

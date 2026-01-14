@@ -10,7 +10,7 @@ import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
-import ru.yandex.practicum.mymarket.payments.service.PaymentsClient;
+import ru.yandex.practicum.mymarket.payments.service.PaymentService;
 
 import java.time.LocalDateTime;
 
@@ -21,27 +21,27 @@ public class CheckoutService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final TransactionalOperator tx;
-    private final PaymentsClient paymentsClient;
+    private final PaymentService paymentService;
 
     public CheckoutService(
             CartService cartService,
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             TransactionalOperator tx,
-            PaymentsClient paymentsClient
+            PaymentService paymentService
     ) {
         this.cartService = cartService;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.tx = tx;
-        this.paymentsClient = paymentsClient;
+        this.paymentService = paymentService;
     }
 
     public Mono<Long> buy() {
         return cartService.getCartView()
                 .flatMap(cart -> {
                     long total = cart.total();
-                    return paymentsClient.pay(total)
+                    return paymentService.pay(total)
                             .then(Mono.defer(() -> createOrderInTx(cart)));
                 });
     }
