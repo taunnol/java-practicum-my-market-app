@@ -8,24 +8,21 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @MyMarketSpringBootTest
 class RedisItemsCacheIT extends RedisSpringBootTestBase {
@@ -44,6 +41,9 @@ class RedisItemsCacheIT extends RedisSpringBootTestBase {
 
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void catalogPage_isCachedInRedis_andSecondCallDoesNotHitDb() {
@@ -136,6 +136,8 @@ class RedisItemsCacheIT extends RedisSpringBootTestBase {
         StepVerifier.create(cleanupDb())
                 .verifyComplete();
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         AtomicLong idHolder = new AtomicLong();
 
         StepVerifier.create(
@@ -148,12 +150,14 @@ class RedisItemsCacheIT extends RedisSpringBootTestBase {
         long id = idHolder.get();
         assertThat(id).isPositive();
 
-        StepVerifier.create(cartItemRepository.save(new CartItemEntity(id, 2)).then())
+        StepVerifier.create(cartItemRepository.save(new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, id, 2)).then())
                 .verifyComplete();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
 
         clearInvocations(itemRepository);
 
-        webTestClient.get()
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk()
@@ -169,7 +173,7 @@ class RedisItemsCacheIT extends RedisSpringBootTestBase {
 
         clearInvocations(itemRepository);
 
-        webTestClient.get()
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk();

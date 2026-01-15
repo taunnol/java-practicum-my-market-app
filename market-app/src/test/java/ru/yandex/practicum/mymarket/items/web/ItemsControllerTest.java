@@ -15,6 +15,8 @@ import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +34,9 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @BeforeEach
     void cleanup() {
@@ -64,10 +69,12 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
 
     @Test
     void postItems_changesCart_andRedirectsKeepingQueryParams() {
-        itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
-        Long itemId = itemRepository.findAll().next().map(ItemEntity::getId).block();
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
 
-        webTestClient.post()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
                 .uri("/items")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
@@ -87,7 +94,11 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
                     assertThat(loc).contains("pageSize=20");
                 });
 
-        Integer count = cartItemRepository.findByItemId(itemId).map(CartItemEntity::getCount).block();
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+        Integer count = cartItemRepository.findByUserIdAndItemId(userId, itemId)
+                .map(CartItemEntity::getCount)
+                .block();
+
         assertThat(count).isEqualTo(1);
     }
 

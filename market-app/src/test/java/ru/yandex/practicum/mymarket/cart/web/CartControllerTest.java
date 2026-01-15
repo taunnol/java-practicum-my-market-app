@@ -8,13 +8,14 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +34,9 @@ class CartControllerTest extends RedisSpringBootTestBase {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void cleanup() {
         StepVerifier.create(Mono.when(
@@ -43,11 +47,24 @@ class CartControllerTest extends RedisSpringBootTestBase {
     }
 
     @Test
-    void getCart_returnsHtmlWithTotal() {
-        ItemEntity item = itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
-        cartItemRepository.save(new CartItemEntity(item.getId(), 2)).block();
-
+    void anonymous_redirectsToLogin_whenAccessCart() {
         webTestClient.get()
+                .uri("/cart/items")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+    }
+
+    @Test
+    void getCart_returnsHtmlWithTotal() {
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
+        ItemEntity item = itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
+        cartItemRepository.save(new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 2)).block();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk()
@@ -62,12 +79,16 @@ class CartControllerTest extends RedisSpringBootTestBase {
 
     @Test
     void postCart_deleteRemovesRow() {
-        itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
-        Long itemId = itemRepository.findAll().next().map(ItemEntity::getId).block();
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
 
-        cartItemRepository.save(new CartItemEntity(itemId, 2)).block();
+        ItemEntity item = itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 100L)).block();
+        Long itemId = item.getId();
 
-        webTestClient.post()
+        cartItemRepository.save(new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, itemId, 2)).block();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
                 .uri("/cart/items")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
@@ -76,7 +97,7 @@ class CartControllerTest extends RedisSpringBootTestBase {
                 .exchange()
                 .expectStatus().isOk();
 
-        StepVerifier.create(cartItemRepository.findByItemId(itemId))
+        StepVerifier.create(cartItemRepository.findByUserIdAndItemId(userId, itemId))
                 .verifyComplete();
     }
 }
