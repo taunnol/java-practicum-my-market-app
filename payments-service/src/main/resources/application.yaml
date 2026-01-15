@@ -3,3 +3,12 @@ server:
 
 payments:
   initial-balance: 10000
+  security:
+    allowed-client-id: ${PAYMENTS_ALLOWED_CLIENT_ID:market-app}
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:8090/realms/my-market}
