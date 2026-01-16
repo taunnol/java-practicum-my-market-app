@@ -3,8 +3,8 @@ package ru.yandex.practicum.mymarket.security;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import ru.yandex.practicum.mymarket.testutil.TestAuth;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

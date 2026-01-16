@@ -45,7 +45,7 @@ docker run --name my-market-keycloak -p 8090:8080 \
   quay.io/keycloak/keycloak:24.0.5 start-dev --import-realm
 ```
 
-2) Запустить `payments-service`:
+3) Запустить `payments-service`:
 
 ```bash
 OAUTH2_ISSUER_URI=http://localhost:8090/realms/my-market \
@@ -53,7 +53,7 @@ PAYMENTS_ALLOWED_CLIENT_ID=market-app \
 ./mvnw -f payments-service/pom.xml spring-boot:run
 ```
 
-3) Запустить `market-app`:
+4) Запустить `market-app`:
 
 ```bash
 OAUTH2_ISSUER_URI=http://localhost:8090/realms/my-market \

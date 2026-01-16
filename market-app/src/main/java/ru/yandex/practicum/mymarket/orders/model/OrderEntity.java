@@ -25,6 +25,7 @@ public class OrderEntity {
     private LocalDateTime createdAt;
 
     public OrderEntity() {
+        // for Spring Data
     }
 
     public Long getId() {

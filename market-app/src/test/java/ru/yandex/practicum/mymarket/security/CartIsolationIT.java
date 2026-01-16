@@ -13,9 +13,9 @@ import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
-import ru.yandex.practicum.mymarket.testutil.TestAuth;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
 import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;

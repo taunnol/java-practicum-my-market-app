@@ -16,7 +16,8 @@
         <openapi.out.dir>${project.build.directory}/generated-sources/openapi</openapi.out.dir>
         <openapi.client.api.package>ru.yandex.practicum.mymarket.payments.client.api</openapi.client.api.package>
         <openapi.client.model.package>ru.yandex.practicum.mymarket.payments.client.model</openapi.client.model.package>
-        <openapi.client.invoker.package>ru.yandex.practicum.mymarket.payments.client.invoker</openapi.client.invoker.package>
+        <openapi.client.invoker.package>ru.yandex.practicum.mymarket.payments.client.invoker
+        </openapi.client.invoker.package>
     </properties>
     <dependencies>
         <dependency>

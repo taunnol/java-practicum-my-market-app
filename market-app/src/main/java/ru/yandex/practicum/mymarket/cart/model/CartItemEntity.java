@@ -19,6 +19,7 @@ public class CartItemEntity {
     private Integer count;
 
     public CartItemEntity() {
+        // for Spring Data
     }
 
     public CartItemEntity(Long userId, Long itemId, Integer count) {
