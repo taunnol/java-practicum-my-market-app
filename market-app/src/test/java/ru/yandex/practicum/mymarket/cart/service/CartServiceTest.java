@@ -15,6 +15,7 @@ import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.common.dto.CartAction;
 import ru.yandex.practicum.mymarket.items.cache.CachedItem;
 import ru.yandex.practicum.mymarket.items.cache.CachedItemService;
+import ru.yandex.practicum.mymarket.users.security.CurrentUserService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +31,9 @@ class CartServiceTest {
     @Mock
     private CachedItemService cachedItemService;
 
+    @Mock
+    private CurrentUserService currentUserService;
+
     @InjectMocks
     private CartService cartService;
 
@@ -38,7 +42,8 @@ class CartServiceTest {
 
     @Test
     void plus_createsNewRow_whenAbsent() {
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.empty());
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.empty());
         when(cartItemRepository.save(any(CartItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.PLUS))
@@ -46,6 +51,7 @@ class CartServiceTest {
 
         verify(cartItemRepository).save(entityCaptor.capture());
         CartItemEntity saved = entityCaptor.getValue();
+        assertThat(saved.getUserId()).isEqualTo(1L);
         assertThat(saved.getItemId()).isEqualTo(10L);
         assertThat(saved.getCount()).isEqualTo(1);
 
@@ -54,9 +60,11 @@ class CartServiceTest {
 
     @Test
     void plus_increments_whenExists() {
-        CartItemEntity existing = new CartItemEntity(10L, 2);
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
 
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.just(existing));
+        CartItemEntity existing = new CartItemEntity(1L, 10L, 2);
+
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.just(existing));
         when(cartItemRepository.save(any(CartItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.PLUS))
@@ -68,9 +76,11 @@ class CartServiceTest {
 
     @Test
     void minus_decrements_whenCountMoreThanOne() {
-        CartItemEntity existing = new CartItemEntity(10L, 2);
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
 
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.just(existing));
+        CartItemEntity existing = new CartItemEntity(1L, 10L, 2);
+
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.just(existing));
         when(cartItemRepository.save(any(CartItemEntity.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.MINUS))
@@ -83,9 +93,11 @@ class CartServiceTest {
 
     @Test
     void minus_deletes_whenCountBecomesZero() {
-        CartItemEntity existing = new CartItemEntity(10L, 1);
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
 
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.just(existing));
+        CartItemEntity existing = new CartItemEntity(1L, 10L, 1);
+
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.just(existing));
         when(cartItemRepository.delete(existing)).thenReturn(Mono.empty());
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.MINUS))
@@ -97,9 +109,11 @@ class CartServiceTest {
 
     @Test
     void delete_removesRow_whenExists() {
-        CartItemEntity existing = new CartItemEntity(10L, 5);
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
 
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.just(existing));
+        CartItemEntity existing = new CartItemEntity(1L, 10L, 5);
+
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.just(existing));
         when(cartItemRepository.delete(existing)).thenReturn(Mono.empty());
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.DELETE))
@@ -111,7 +125,8 @@ class CartServiceTest {
 
     @Test
     void minus_doesNothing_whenAbsent() {
-        when(cartItemRepository.findByItemId(10L)).thenReturn(Mono.empty());
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
+        when(cartItemRepository.findByUserIdAndItemId(1L, 10L)).thenReturn(Mono.empty());
 
         StepVerifier.create(cartService.changeCount(10L, CartAction.MINUS))
                 .verifyComplete();
@@ -122,9 +137,10 @@ class CartServiceTest {
 
     @Test
     void getCountsByItemId_returnsMap() {
-        when(cartItemRepository.findAll()).thenReturn(Flux.just(
-                new CartItemEntity(1L, 2),
-                new CartItemEntity(2L, 1)
+        when(currentUserService.currentUserIdOrEmpty()).thenReturn(Mono.just(1L));
+        when(cartItemRepository.findAllByUserId(1L)).thenReturn(Flux.just(
+                new CartItemEntity(1L, 1L, 2),
+                new CartItemEntity(1L, 2L, 1)
         ));
 
         StepVerifier.create(cartService.getCountsByItemId())
@@ -137,9 +153,10 @@ class CartServiceTest {
 
     @Test
     void getCartView_buildsItemsAndTotal_andNormalizesImgPath() {
-        when(cartItemRepository.findAll()).thenReturn(Flux.just(
-                new CartItemEntity(10L, 2),
-                new CartItemEntity(20L, 1)
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
+        when(cartItemRepository.findAllByUserId(1L)).thenReturn(Flux.just(
+                new CartItemEntity(1L, 10L, 2),
+                new CartItemEntity(1L, 20L, 1)
         ));
 
         CachedItem i1 = new CachedItem(10L, "A", "d", "/images/a.jpg", 100L);

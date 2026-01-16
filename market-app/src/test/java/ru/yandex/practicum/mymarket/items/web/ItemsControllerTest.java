@@ -15,6 +15,8 @@ import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +34,9 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @BeforeEach
     void cleanup() {
@@ -63,11 +68,81 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
     }
 
     @Test
-    void postItems_changesCart_andRedirectsKeepingQueryParams() {
-        itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
-        Long itemId = itemRepository.findAll().next().map(ItemEntity::getId).block();
+    void getItem_returnsHtml() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        webTestClient.get()
+                .uri("/items/" + itemId)
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("Витрина магазина");
+                    assertThat(body).contains("t1");
+                    assertThat(body).contains("d1");
+                });
+    }
+
+    @Test
+    void getItem_notFound_returns404() {
+        webTestClient.get()
+                .uri("/items/999999")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void postItem_plus_changesCart_andReturnsHtml() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
+                .uri("/items/" + itemId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("action", "PLUS"))
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("t1");
+                    assertThat(body).contains("d1");
+                });
+
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+        Integer count = cartItemRepository.findByUserIdAndItemId(userId, itemId)
+                .map(CartItemEntity::getCount)
+                .block();
+
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void postItem_anonymous_redirectsToLogin() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
 
         webTestClient.post()
+                .uri("/items/" + itemId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("action", "PLUS"))
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+    }
+
+    @Test
+    void postItems_changesCart_andRedirectsKeepingQueryParams() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
                 .uri("/items")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData("id", String.valueOf(itemId))
@@ -87,7 +162,11 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
                     assertThat(loc).contains("pageSize=20");
                 });
 
-        Integer count = cartItemRepository.findByItemId(itemId).map(CartItemEntity::getCount).block();
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+        Integer count = cartItemRepository.findByUserIdAndItemId(userId, itemId)
+                .map(CartItemEntity::getCount)
+                .block();
+
         assertThat(count).isEqualTo(1);
     }
 

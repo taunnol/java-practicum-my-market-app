@@ -14,8 +14,13 @@ public class OrderEntity {
 
     @Transient
     private final List<OrderItemEntity> items = new ArrayList<>();
+
     @Id
     private Long id;
+
+    @Column("user_id")
+    private Long userId;
+
     @Column("created_at")
     private LocalDateTime createdAt;
 
@@ -25,6 +30,14 @@ public class OrderEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public LocalDateTime getCreatedAt() {

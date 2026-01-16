@@ -35,33 +35,42 @@
 redis-server
 ```
 
-2) Запустить `payments-service`:
+2) Поднять Keycloak c импортом realm:
 
 ```bash
+docker run --name my-market-keycloak -p 8090:8080 \
+  -e KEYCLOAK_ADMIN=admin \
+  -e KEYCLOAK_ADMIN_PASSWORD=admin \
+  -v "$(pwd)/keycloak/realm-my-market.json:/opt/keycloak/data/import/realm-my-market.json" \
+  quay.io/keycloak/keycloak:24.0.5 start-dev --import-realm
+```
+
+3) Запустить `payments-service`:
+
+```bash
+OAUTH2_ISSUER_URI=http://localhost:8090/realms/my-market \
+PAYMENTS_ALLOWED_CLIENT_ID=market-app \
 ./mvnw -f payments-service/pom.xml spring-boot:run
 ```
 
-3) Запустить `market-app`:
+4) Запустить `market-app`:
 
 ```bash
+OAUTH2_ISSUER_URI=http://localhost:8090/realms/my-market \
+OAUTH2_CLIENT_ID=market-app \
+OAUTH2_CLIENT_SECRET=market-app-secret \
 ./mvnw -f market-app/pom.xml spring-boot:run
 ```
 
 ### В Docker-контейнере
 
-1) Запустить контейнер с Redis:
-
-```bash
-docker run --name my-market-redis -p 6379:6379 -d redis:7.4-alpine
-```
-
-2) Собрать jar-файлы:
+1) Собрать jar-файлы:
 
 ```bash
 ./mvnw -pl payments-service,market-app -am clean package
 ```
 
-3) Поднять контейнеры:
+2) Поднять контейнеры:
 
 ```bash
 docker compose up --build
@@ -69,14 +78,19 @@ docker compose up --build
 
 Убедиться, что все в порядке:
 
-- http://localhost:8080/ должен открыть главную страницу магазина
-- http://localhost:8081/api/payments/balance должен вернуть json с текущим балансом
+- http://localhost:8080/ должен открыть главную страницу магазина. 
+Доступные тестовые пользователи:
+  - `admin`:`admin`
+  - `user`:`password`
+  - `user2`:`password2`
+- http://localhost:8081/api/payments/balance без токена должен вернуть 401, а с ним - json с текущим балансом
+- http://localhost:8090/ должен открыть панель Keycloak
 
-### Про API
+## Про API
 
 Спецификация находится в `openapi/payments-api.yaml`.
 
 ## Про данные
 
-Стандартный предзаполненный набор товаров лежит в `src/main/resources/data.sql`.
-Изображения товаров находятся в `src/main/resources/static/images`.
+- Стандартный предзаполненный набор пользователей и товаров лежит в `market-app/src/main/resources/data.sql`.
+- Изображения товаров находятся в `market-app/src/main/resources/static/images`.

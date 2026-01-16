@@ -15,6 +15,8 @@ import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import java.time.LocalDateTime;
 
@@ -38,6 +40,9 @@ class OrdersControllerTest extends RedisSpringBootTestBase {
     @Autowired
     private ItemRepository itemRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void cleanup() {
         StepVerifier.create(Mono.when(
@@ -50,7 +55,10 @@ class OrdersControllerTest extends RedisSpringBootTestBase {
 
     @Test
     void ordersPages_render() {
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         OrderEntity order = new OrderEntity();
+        order.setUserId(userId);
         order.setCreatedAt(LocalDateTime.now());
 
         OrderEntity saved = orderRepository.save(order).block();
@@ -60,7 +68,9 @@ class OrdersControllerTest extends RedisSpringBootTestBase {
         oi.setOrderId(id);
         orderItemRepository.save(oi).block();
 
-        webTestClient.get()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
                 .uri("/orders")
                 .exchange()
                 .expectStatus().isOk()
@@ -68,12 +78,30 @@ class OrdersControllerTest extends RedisSpringBootTestBase {
                 .expectBody(String.class)
                 .value(body -> assertThat(body).contains("Заказ №" + id));
 
-        webTestClient.get()
+        auth.get()
                 .uri("/orders/" + id + "?newOrder=true")
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
                 .expectBody(String.class)
                 .value(body -> assertThat(body).contains("Поздравляем"));
+    }
+
+    @Test
+    void user_cannotAccessOtherUsersOrder() {
+        long user2Id = TestAuth.userIdBlocking(userRepository, "user2");
+
+        OrderEntity order = new OrderEntity();
+        order.setUserId(user2Id);
+        order.setCreatedAt(LocalDateTime.now());
+
+        long id = orderRepository.save(order).map(OrderEntity::getId).block();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
+                .uri("/orders/" + id)
+                .exchange()
+                .expectStatus().isNotFound();
     }
 }

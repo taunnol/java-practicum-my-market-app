@@ -11,13 +11,14 @@ import reactor.core.publisher.Mono;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 import reactor.test.StepVerifier;
-import ru.yandex.practicum.mymarket.cart.model.CartItemEntity;
 import ru.yandex.practicum.mymarket.cart.repo.CartItemRepository;
 import ru.yandex.practicum.mymarket.items.model.ItemEntity;
 import ru.yandex.practicum.mymarket.items.repo.ItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
+import ru.yandex.practicum.mymarket.testutil.TestAuth;
+import ru.yandex.practicum.mymarket.users.repo.UserRepository;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,14 +31,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
 
     private static final PaymentsStubServer PAYMENTS = new PaymentsStubServer();
+
     @Autowired
     private WebTestClient webTestClient;
+
     @Autowired
     private ItemRepository itemRepository;
+
     @Autowired
     private CartItemRepository cartItemRepository;
+
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @DynamicPropertySource
     static void paymentsProps(DynamicPropertyRegistry registry) {
@@ -61,13 +69,9 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
 
         boolean hasDisabled = snippet.contains("disabled");
         if (expectedDisabled) {
-            assertThat(hasDisabled)
-                    .as("Buy button must be disabled. Snippet: %s", snippet)
-                    .isTrue();
+            assertThat(hasDisabled).isTrue();
         } else {
-            assertThat(hasDisabled)
-                    .as("Buy button must be enabled. Snippet: %s", snippet)
-                    .isFalse();
+            assertThat(hasDisabled).isFalse();
         }
     }
 
@@ -87,12 +91,18 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
     void cart_buyButtonEnabled_whenBalanceEnough() {
         PAYMENTS.resetBalance(1_000);
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         StepVerifier.create(
                 itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 500L))
-                        .flatMap(item -> cartItemRepository.save(new CartItemEntity(item.getId(), 1)).then())
+                        .flatMap(item -> cartItemRepository.save(
+                                new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 1)
+                        ).then())
         ).verifyComplete();
 
-        webTestClient.get()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk()
@@ -108,12 +118,18 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
     void cart_buyButtonDisabled_whenBalanceInsufficient() {
         PAYMENTS.resetBalance(100);
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         StepVerifier.create(
                 itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 500L))
-                        .flatMap(item -> cartItemRepository.save(new CartItemEntity(item.getId(), 1)).then())
+                        .flatMap(item -> cartItemRepository.save(
+                                new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 1)
+                        ).then())
         ).verifyComplete();
 
-        webTestClient.get()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk()
@@ -128,12 +144,18 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
     void cart_buyButtonDisabled_whenPaymentsServiceUnavailable() {
         PAYMENTS.setAvailable(false);
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         StepVerifier.create(
                 itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 500L))
-                        .flatMap(item -> cartItemRepository.save(new CartItemEntity(item.getId(), 1)).then())
+                        .flatMap(item -> cartItemRepository.save(
+                                new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 1)
+                        ).then())
         ).verifyComplete();
 
-        webTestClient.get()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.get()
                 .uri("/cart/items")
                 .exchange()
                 .expectStatus().isOk()
@@ -148,12 +170,18 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
     void buy_redirectsToCart_withInsufficientFunds_andDoesNotCreateOrder() {
         PAYMENTS.resetBalance(100);
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         StepVerifier.create(
                 itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 500L))
-                        .flatMap(item -> cartItemRepository.save(new CartItemEntity(item.getId(), 1)).then())
+                        .flatMap(item -> cartItemRepository.save(
+                                new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 1)
+                        ).then())
         ).verifyComplete();
 
-        webTestClient.post()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
                 .uri("/buy")
                 .exchange()
                 .expectStatus().is3xxRedirection()
@@ -169,12 +197,18 @@ class PaymentsHttpIntegrationIT extends RedisSpringBootTestBase {
     void buy_redirectsToCart_withServiceUnavailable_andDoesNotCreateOrder() {
         PAYMENTS.setAvailable(false);
 
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+
         StepVerifier.create(
                 itemRepository.save(new ItemEntity("A", "a", "/images/a.jpg", 500L))
-                        .flatMap(item -> cartItemRepository.save(new CartItemEntity(item.getId(), 1)).then())
+                        .flatMap(item -> cartItemRepository.save(
+                                new ru.yandex.practicum.mymarket.cart.model.CartItemEntity(userId, item.getId(), 1)
+                        ).then())
         ).verifyComplete();
 
-        webTestClient.post()
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
                 .uri("/buy")
                 .exchange()
                 .expectStatus().is3xxRedirection()

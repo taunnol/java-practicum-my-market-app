@@ -61,7 +61,6 @@ public class ItemsController {
                 .thenReturn("redirect:" + redirect);
     }
 
-
     @GetMapping("/items/{id}")
     public Mono<String> getItem(@PathVariable("id") long id, Model model) {
         return renderItem(id, model);
@@ -70,10 +69,10 @@ public class ItemsController {
     @PostMapping("/items/{id}")
     public Mono<String> changeCountFromItem(
             @PathVariable("id") long id,
-            @RequestParam("action") ItemAction action,
+            @Valid @ModelAttribute ItemDetailsActionForm form,
             Model model
     ) {
-        CartAction cartAction = (action == ItemAction.PLUS) ? CartAction.PLUS : CartAction.MINUS;
+        CartAction cartAction = (form.getAction() == ItemAction.PLUS) ? CartAction.PLUS : CartAction.MINUS;
         return cartService.changeCount(id, cartAction)
                 .then(renderItem(id, model));
     }

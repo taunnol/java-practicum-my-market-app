@@ -20,6 +20,7 @@ import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.payments.service.InsufficientFundsException;
 import ru.yandex.practicum.mymarket.payments.service.PaymentService;
 import ru.yandex.practicum.mymarket.testutil.TestEntityIds;
+import ru.yandex.practicum.mymarket.users.security.CurrentUserService;
 
 import java.util.List;
 
@@ -45,15 +46,22 @@ class CheckoutServiceTest {
     @Mock
     private PaymentService paymentService;
 
+    @Mock
+    private CurrentUserService currentUserService;
+
     @InjectMocks
     private CheckoutService checkoutService;
 
     @Captor
     private ArgumentCaptor<OrderItemEntity> orderItemCaptor;
 
+    @Captor
+    private ArgumentCaptor<OrderEntity> orderCaptor;
+
     @Test
     void buy_createsOrderItems_andClearsCart_whenPaymentOk() {
-        lenient().doAnswer(inv -> inv.getArgument(0)).when(tx).transactional(any(Mono.class));
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
+        when(tx.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
 
         when(cartService.getCartView()).thenReturn(Mono.just(new CartView(
                 List.of(
@@ -78,7 +86,9 @@ class CheckoutServiceTest {
                 .expectNext(123L)
                 .verifyComplete();
 
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().getUserId()).isEqualTo(1L);
+
         verify(orderItemRepository, times(2)).save(orderItemCaptor.capture());
 
         List<OrderItemEntity> saved = orderItemCaptor.getAllValues();
@@ -92,7 +102,8 @@ class CheckoutServiceTest {
 
     @Test
     void buy_deletesDraftOrder_whenPaymentRejected() {
-        lenient().doAnswer(inv -> inv.getArgument(0)).when(tx).transactional(any(Mono.class));
+        when(currentUserService.currentUserId()).thenReturn(Mono.just(1L));
+        when(tx.transactional(any(Mono.class))).thenAnswer(inv -> inv.getArgument(0));
 
         when(cartService.getCartView()).thenReturn(Mono.just(new CartView(
                 List.of(new ItemDto(10, "A", "d", "images/a.jpg", 100, 2)),
@@ -115,7 +126,9 @@ class CheckoutServiceTest {
                 .expectError(InsufficientFundsException.class)
                 .verify();
 
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().getUserId()).isEqualTo(1L);
+
         verify(orderItemRepository, times(1)).save(any(OrderItemEntity.class));
 
         verify(paymentService).pay(200L);

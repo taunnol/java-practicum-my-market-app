@@ -10,6 +10,9 @@ public class CartItemEntity {
     @Id
     private Long id;
 
+    @Column("user_id")
+    private Long userId;
+
     @Column("item_id")
     private Long itemId;
 
@@ -19,13 +22,18 @@ public class CartItemEntity {
         // for Spring Data
     }
 
-    public CartItemEntity(Long itemId, Integer count) {
+    public CartItemEntity(Long userId, Long itemId, Integer count) {
+        this.userId = userId;
         this.itemId = itemId;
         this.count = count;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public Long getUserId() {
+        return userId;
     }
 
     public Long getItemId() {

@@ -9,6 +9,7 @@ import ru.yandex.practicum.mymarket.orders.model.OrderEntity;
 import ru.yandex.practicum.mymarket.orders.model.OrderItemEntity;
 import ru.yandex.practicum.mymarket.orders.repo.OrderItemRepository;
 import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
+import ru.yandex.practicum.mymarket.users.security.CurrentUserService;
 
 import java.util.List;
 
@@ -17,10 +18,16 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final CurrentUserService currentUserService;
 
-    public OrderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
+    public OrderService(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            CurrentUserService currentUserService
+    ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
+        this.currentUserService = currentUserService;
     }
 
     private static OrderItemDto toDto(OrderItemEntity e) {
@@ -46,22 +53,26 @@ public class OrderService {
     }
 
     public Mono<List<OrderDto>> getOrders() {
-        return orderRepository.findAllByOrderByIdDesc()
-                .flatMap(order ->
-                        orderItemRepository.findAllByOrderId(order.getId())
-                                .collectList()
-                                .map(items -> toDto(order, items))
-                )
-                .collectList();
+        return currentUserService.currentUserId()
+                .flatMap(userId -> orderRepository.findAllByUserIdOrderByIdDesc(userId)
+                        .flatMap(order ->
+                                orderItemRepository.findAllByOrderId(order.getId())
+                                        .collectList()
+                                        .map(items -> toDto(order, items))
+                        )
+                        .collectList()
+                );
     }
 
     public Mono<OrderDto> getOrder(long id) {
-        return orderRepository.findById(id)
-                .switchIfEmpty(Mono.error(new NotFoundException("Order not found: " + id)))
-                .flatMap(order ->
-                        orderItemRepository.findAllByOrderId(order.getId())
-                                .collectList()
-                                .map(items -> toDto(order, items))
+        return currentUserService.currentUserId()
+                .flatMap(userId -> orderRepository.findByIdAndUserId(id, userId)
+                        .switchIfEmpty(Mono.error(new NotFoundException("Order not found: " + id)))
+                        .flatMap(order ->
+                                orderItemRepository.findAllByOrderId(order.getId())
+                                        .collectList()
+                                        .map(items -> toDto(order, items))
+                        )
                 );
     }
 }
