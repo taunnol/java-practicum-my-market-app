@@ -68,6 +68,74 @@ class ItemsControllerTest extends RedisSpringBootTestBase {
     }
 
     @Test
+    void getItem_returnsHtml() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        webTestClient.get()
+                .uri("/items/" + itemId)
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("Витрина магазина");
+                    assertThat(body).contains("t1");
+                    assertThat(body).contains("d1");
+                });
+    }
+
+    @Test
+    void getItem_notFound_returns404() {
+        webTestClient.get()
+                .uri("/items/999999")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void postItem_plus_changesCart_andReturnsHtml() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        WebTestClient auth = TestAuth.login(webTestClient, "user", "password");
+
+        auth.post()
+                .uri("/items/" + itemId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("action", "PLUS"))
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(body -> {
+                    assertThat(body).contains("t1");
+                    assertThat(body).contains("d1");
+                });
+
+        long userId = TestAuth.userIdBlocking(userRepository, "user");
+        Integer count = cartItemRepository.findByUserIdAndItemId(userId, itemId)
+                .map(CartItemEntity::getCount)
+                .block();
+
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void postItem_anonymous_redirectsToLogin() {
+        ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
+        Long itemId = item.getId();
+
+        webTestClient.post()
+                .uri("/items/" + itemId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("action", "PLUS"))
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+    }
+
+    @Test
     void postItems_changesCart_andRedirectsKeepingQueryParams() {
         ItemEntity item = itemRepository.save(new ItemEntity("t1", "d1", "/images/1.jpg", 10L)).block();
         Long itemId = item.getId();

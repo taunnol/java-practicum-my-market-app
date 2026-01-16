@@ -14,6 +14,8 @@ import ru.yandex.practicum.mymarket.orders.repo.OrderRepository;
 import ru.yandex.practicum.mymarket.testsupport.MyMarketSpringBootTest;
 import ru.yandex.practicum.mymarket.testsupport.RedisSpringBootTestBase;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @MyMarketSpringBootTest
@@ -67,6 +69,34 @@ class AnonymousUISecurityIT extends RedisSpringBootTestBase {
     }
 
     @Test
+    void anonymous_itemCardPage_hasNoPrivateLinksAndNoCartControls() {
+        String title = "ANON_ITEM_CARD";
+        AtomicLong itemId = new AtomicLong();
+
+        StepVerifier.create(itemRepository.save(new ItemEntity(title, "d", "/images/a.jpg", 10L)))
+                .assertNext(saved -> itemId.set(saved.getId()))
+                .verifyComplete();
+
+        webTestClient.get()
+                .uri("/items/" + itemId.get())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(html -> {
+                    assertThat(html).contains("Витрина магазина");
+                    assertThat(html).contains(title);
+
+                    assertThat(html).doesNotContain("href=\"/orders\"");
+                    assertThat(html).doesNotContain("href=\"/cart/items\"");
+
+                    assertThat(html).doesNotContain("value=\"PLUS\"");
+                    assertThat(html).doesNotContain("value=\"MINUS\"");
+                    assertThat(html).doesNotContain("value=\"DELETE\"");
+                });
+    }
+
+    @Test
     void anonymous_privatePages_redirectToLogin() {
         webTestClient.get()
                 .uri("/cart/items")
@@ -76,6 +106,44 @@ class AnonymousUISecurityIT extends RedisSpringBootTestBase {
 
         webTestClient.get()
                 .uri("/orders")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+    }
+
+    @Test
+    void anonymous_privatePosts_redirectToLogin() {
+        AtomicLong itemId = new AtomicLong();
+        StepVerifier.create(itemRepository.save(new ItemEntity("x", "d", "/images/a.jpg", 10L)))
+                .assertNext(saved -> itemId.set(saved.getId()))
+                .verifyComplete();
+
+        webTestClient.post()
+                .uri("/items/" + itemId.get())
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue("action=PLUS")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+
+        webTestClient.post()
+                .uri("/items")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue("id=" + itemId.get() + "&action=PLUS")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+
+        webTestClient.post()
+                .uri("/cart/items")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue("id=" + itemId.get() + "&action=PLUS")
+                .exchange()
+                .expectStatus().is3xxRedirection()
+                .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
+
+        webTestClient.post()
+                .uri("/buy")
                 .exchange()
                 .expectStatus().is3xxRedirection()
                 .expectHeader().value("Location", loc -> assertThat(loc).contains("/login"));
